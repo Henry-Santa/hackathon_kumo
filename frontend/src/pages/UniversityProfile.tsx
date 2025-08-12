@@ -63,31 +63,40 @@ export default function UniversityProfile() {
   }, []);
 
   const hasFetched = useRef(false);
-  const loadRandom = useCallback(async () => {
+  const loadRec = useCallback(async (userId: string) => {
     try {
       setError(null);
-      const r = await fetch('/api/universities/random');
-      const data = await r.json();
-      if (data?.error) throw new Error(data.error);
-      if (!data?.images || data.images.length === 0) {
+      let r = await fetch('/api/universities/recommendations?user_id=' + encodeURIComponent(userId) + '&top_k=1');
+      let data = await r.json();
+      let picked = data?.items?.[0];
+      if (!picked) {
+        // fallback to random if recommender empty
+        r = await fetch('/api/universities/random');
+        data = await r.json();
+        picked = data;
+      }
+      if (picked?.error) throw new Error(picked.error);
+      if (!picked?.images || picked.images.length === 0) {
         try {
-          const res = await fetch(`/api/images/by-unitid/${data.unitid}?limit=5`);
+          const res = await fetch(`/api/images/by-unitid/${picked.unitid}?limit=5`);
           const j = await res.json();
-          if (j?.items?.length) data.images = j.items;
+          if (j?.items?.length) picked.images = j.items;
         } catch {}
       }
-      setUni(data);
+      setUni(picked);
       setSlideIndex(0);
     } catch (e: any) {
       setError(e.message);
     }
   }, []);
 
+  const lastUidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (hasFetched.current) return; // guard StrictMode double-invoke
-    hasFetched.current = true;
-    loadRandom();
-  }, [loadRandom]);
+    if (!me?.user_id) return;
+    if (lastUidRef.current === me.user_id) return;
+    lastUidRef.current = me.user_id;
+    loadRec(me.user_id);
+  }, [me?.user_id, loadRec]);
 
   const userSatTotal = useMemo(() => {
     if (!me) return undefined;
@@ -204,8 +213,8 @@ export default function UniversityProfile() {
         <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
           {!atEnd ? <span style={{ color: '#666' }}>Flip through slides, then choose Like/Dislike</span> : (
             <>
-              <SwipeButton kind="dislike" unitid={uni.unitid} onDone={loadRandom} />
-              <SwipeButton kind="like" unitid={uni.unitid} onDone={loadRandom} />
+              <SwipeButton kind="dislike" unitid={uni.unitid} onDone={() => me?.user_id && loadRec(me.user_id)} />
+              <SwipeButton kind="like" unitid={uni.unitid} onDone={() => me?.user_id && loadRec(me.user_id)} />
             </>
           )}
         </div>

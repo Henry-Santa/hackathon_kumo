@@ -19,8 +19,10 @@ from .images import (
     fetch_images_for_unitid,
     fetch_top_images_for_unitid,
 )
+from .rfm_reco import recommend_top_k
 import anyio
 import asyncio
+import os
 
 
 app = FastAPI(title="College Matcher API")
@@ -52,8 +54,8 @@ def log_startup_config():
         len(settings.jwt_secret) if settings.jwt_secret else 0,
     )
     logger.info(
-        "Kumo key configured: %s",
-        "yes" if settings.kumo_key else "no",
+        "Kumo API key configured: %s",
+        "yes" if getattr(settings, "kumo_api_key", None) else "no",
     )
 
 
@@ -480,6 +482,149 @@ async def university_random():
     return uni
 
 
+def _kumo_available() -> bool:
+    try:
+        import kumoai  # type: ignore
+        return bool(settings.kumo_key)
+    except Exception:
+        return False
+
+
+@app.get("/universities/recommendations")
+async def universities_recommendations(user_id: str, top_k: int = 10):
+    logger = logging.getLogger("uvicorn")
+    if not (settings.kumo_api_key):
+        logger.info("Recommendations fallback: Kumo unavailable for user %s", user_id)
+        rand = await university_random()
+        return {"items": [rand] if isinstance(rand, dict) else []}
+
+    try:
+        # Use KumoRFM-based recommender abstraction
+        recs = recommend_top_k(user_id=user_id, top_k=min(20, max(10, top_k)), horizon_days=180)
+        unitids = [r["unitid"] for r in recs]
+        score_by_unitid = {int(r["unitid"]): float(r.get("score", 0.0)) for r in recs}
+        if not unitids:
+            rand = await university_random()
+            return {"items": [rand] if isinstance(rand, dict) else []}
+
+        from .db import get_connection
+        import snowflake.connector
+        placeholders = ",".join(["%s"] * len(unitids))
+        cols = ", ".join(UNIVERSITY_COLUMNS)
+        def _fetch_unis():
+            with get_connection() as conn:
+                with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
+                    cur.execute(
+                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID IN ({placeholders})",
+                        tuple(unitids),
+                    )
+                    return cur.fetchall()
+        # Exclude already liked/disliked unitids for this user
+        from .db import get_connection as _get_conn
+        import snowflake.connector as _sf
+        def _fetch_seen():
+            with _get_conn() as conn:
+                with conn.cursor(_sf.DictCursor) as cur:  # type: ignore
+                    cur.execute(
+                        """
+                        SELECT UNITID FROM DATA_LAKE.PUBLIC.USER_LIKES WHERE USER_ID = %s
+                        UNION
+                        SELECT UNITID FROM DATA_LAKE.PUBLIC.USER_DISLIKES WHERE USER_ID = %s
+                        """,
+                        (user_id, user_id),
+                    )
+                    return {int(r["UNITID"]) for r in cur.fetchall()}
+        seen_unitids = await anyio.to_thread.run_sync(_fetch_seen)
+        filtered_unitids = [u for u in unitids if int(u) not in seen_unitids]
+        # Cleaning: if all candidates are seen, trigger unseen fallback instead of returning seen items
+        if not filtered_unitids:
+            logger.info("All RFM candidates already seen for user %s; cleaning applied → unseen fallback.", user_id)
+        # Fetch university rows for filtered unitids
+        unitids = filtered_unitids[: max(1, int(top_k))]
+        if not unitids:
+            # Try popularity-based unseen fallback
+            def _fetch_popular_unseen():
+                with get_connection() as conn:
+                    with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
+                        if seen_unitids:
+                            placeholders_seen = ",".join(["%s"] * len(seen_unitids))
+                            cur.execute(
+                                f"""
+                                SELECT u.{cols}
+                                FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA u
+                                JOIN (
+                                    SELECT UNITID, COUNT(*) AS c
+                                    FROM DATA_LAKE.PUBLIC.USER_LIKES
+                                    GROUP BY UNITID
+                                    ORDER BY c DESC
+                                ) p ON p.UNITID = u.UNITID
+                                WHERE u.UNITID NOT IN ({placeholders_seen})
+                                LIMIT %s
+                                """,
+                                tuple(seen_unitids) + (max(1, int(top_k)),),
+                            )
+                        else:
+                            cur.execute(
+                                f"""
+                                SELECT {cols}
+                                FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA
+                                ORDER BY RANDOM()
+                                LIMIT %s
+                                """,
+                                (max(1, int(top_k)),),
+                            )
+                        return cur.fetchall()
+            uni_rows = await anyio.to_thread.run_sync(_fetch_popular_unseen)
+            # Build items and return early (scores unknown here)
+            items = []
+            for r in uni_rows:
+                u = _row_to_university(r)
+                u["score"] = None
+                u["images"] = await fetch_top_images_for_unitid(int(u["unitid"]))
+                items.append(u)
+            logger.info("Fallback (unseen random/popular) for user %s: %s", user_id, ", ".join([str(i.get("institution_name")) for i in items]))
+            return {"items": items}
+        def _fetch_unis_for(ids_tuple):
+            with get_connection() as conn:
+                with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
+                    placeholders_local = ",".join(["%s"] * len(ids_tuple))
+                    cur.execute(
+                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID IN ({placeholders_local})",
+                        ids_tuple,
+                    )
+                    return cur.fetchall()
+        uni_rows = await anyio.to_thread.run_sync(lambda: _fetch_unis_for(tuple(unitids)))
+        rank = {u: i for i, u in enumerate(unitids)}
+        uni_rows.sort(key=lambda r: rank.get(int(r["UNITID"]), 10**9))
+        # Build response items with scores and images
+        items = []
+        for r in uni_rows[: max(1, int(top_k))]:
+            u = _row_to_university(r)
+            uid_int = int(u["unitid"]) if u.get("unitid") is not None else None
+            if uid_int is not None:
+                u["score"] = score_by_unitid.get(uid_int)
+            u["images"] = await fetch_top_images_for_unitid(int(u["unitid"]))
+            items.append(u)
+        # Log top recommendations with names and scores for debugging/inspection
+        try:
+            log_lines = []
+            for it in items:
+                name = it.get("institution_name")
+                uid = it.get("unitid")
+                score = it.get("score")
+                if score is None:
+                    log_lines.append(f"{name} (unitid={uid})")
+                else:
+                    log_lines.append(f"{name} (unitid={uid}, score={score:.4f})")
+            logger.info("Top %s recommendations for user %s: %s", len(items), user_id, ", ".join(log_lines))
+        except Exception:
+            pass
+        return {"items": items}
+    except Exception as e:
+        logger = logging.getLogger("uvicorn")
+        logger.info("RFM recommendations error for user %s: %s; fallback to random", user_id, e)
+        rand = await university_random()
+        return {"items": [rand] if isinstance(rand, dict) else [], "error": str(e)}
 @app.get("/me/likes")
 def list_likes(user_id: str = Depends(require_auth)):
     rows = fetch_all(
