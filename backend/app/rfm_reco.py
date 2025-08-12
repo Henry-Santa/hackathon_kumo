@@ -108,9 +108,9 @@ def _ensure_init():
     _INIT = True
 
 
-def _build_graph():
+def _build_graph(force_refresh: bool = False):
     global _GRAPH, _MODEL
-    if _GRAPH is not None and _MODEL is not None:
+    if not force_refresh and _GRAPH is not None and _MODEL is not None:
         return _GRAPH, _MODEL
 
     _ensure_init()
@@ -153,8 +153,9 @@ def _build_graph():
     return graph, model
 
 
-def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180) -> List[Dict]:
-    _, model = _build_graph()
+def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, force_refresh: bool = True) -> List[Dict]:
+    # Always rebuild graph by default so latest likes/dislikes are reflected
+    _, model = _build_graph(force_refresh=force_refresh)
     # Foundation model limit is 20
     k = max(1, min(int(top_k), 20))
     uid = (user_id or "").replace("'", "''")
@@ -165,7 +166,7 @@ def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180) -> L
         f"RANK TOP {k} "
         f"FOR users.USER_ID = '{uid}'"
     )
-    df = model.predict(query, run_mode='normal')
+    df = model.predict(query, run_mode='normal', num_hops=6)
     out: List[Dict] = []
     print(df)
     # Fetch user's disliked unitids and filter them out

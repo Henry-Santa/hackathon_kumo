@@ -20,12 +20,20 @@ from .images import (
     fetch_top_images_for_unitid,
 )
 from .rfm_reco import recommend_top_k
+from collections import deque
+from typing import Dict, Deque, Tuple, List
 import anyio
 import asyncio
 import os
 
 
 app = FastAPI(title="College Matcher API")
+
+# In-memory per-user recommendation cache: user_id -> deque of (unitid, score)
+_REC_CACHE: Dict[str, Deque[Tuple[int, float | None]]] = {}
+_REC_CACHE_MAX = 10
+_REC_CACHE_MIN = 3
+_REC_INFLIGHT: Dict[str, bool] = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -223,6 +231,19 @@ def signin(req: SignInRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = issue_jwt(row["USER_ID"], req.email)
+    # Prewarm cache asynchronously so first profile load is instant
+    try:
+        import threading
+        uid = row["USER_ID"]
+        def _prewarm():
+            try:
+                recs = recommend_top_k(user_id=uid, top_k=max(3, _REC_CACHE_MIN), horizon_days=180, force_refresh=True)
+                _cache_push(uid, recs)
+            except Exception:
+                pass
+        threading.Thread(target=_prewarm, daemon=True).start()
+    except Exception:
+        pass
     return {"token": token, "user_id": row["USER_ID"]}
 
 
@@ -259,6 +280,8 @@ def like(req: SwipeRequest, user_id: str = Depends(require_auth)):
         """,
         {"user_id": user_id, "unitid": req.unitid},
     )
+    _cache_remove_unit(user_id, req.unitid)
+    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -280,6 +303,8 @@ def dislike(req: SwipeRequest, user_id: str = Depends(require_auth)):
         """,
         {"user_id": user_id, "unitid": req.unitid},
     )
+    _cache_remove_unit(user_id, req.unitid)
+    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -289,6 +314,8 @@ def unlike(req: SwipeRequest, user_id: str = Depends(require_auth)):
         "DELETE FROM DATA_LAKE.PUBLIC.USER_LIKES WHERE USER_ID = %(user)s AND UNITID = %(u)s",
         {"user": user_id, "u": req.unitid},
     )
+    _cache_remove_unit(user_id, req.unitid)
+    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -298,6 +325,8 @@ def undislike(req: SwipeRequest, user_id: str = Depends(require_auth)):
         "DELETE FROM DATA_LAKE.PUBLIC.USER_DISLIKES WHERE USER_ID = %(user)s AND UNITID = %(u)s",
         {"user": user_id, "u": req.unitid},
     )
+    _cache_remove_unit(user_id, req.unitid)
+    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -490,6 +519,92 @@ def _kumo_available() -> bool:
         return False
 
 
+def _cache_push(user_id: str, recs: List[dict]) -> None:
+    logger = logging.getLogger("uvicorn")
+    q = _REC_CACHE.setdefault(user_id, deque(maxlen=_REC_CACHE_MAX))
+    for r in recs:
+        try:
+            uid = int(r.get("unitid"))
+            score = float(r.get("score")) if r.get("score") is not None else None
+            # Avoid duplicates in deque
+            if uid not in [u for (u, _) in q]:
+                q.append((uid, score))
+    
+        except Exception:
+            continue
+    logger.info("Cache push for user %s: size=%s", user_id, len(q))
+
+
+def _cache_pop(user_id: str) -> Tuple[int, float | None] | None:
+    q = _REC_CACHE.get(user_id)
+    if not q:
+        return None
+    try:
+        item = q.popleft()
+        logging.getLogger("uvicorn").info("Cache pop for user %s: remaining=%s", user_id, len(q) if q else 0)
+        return item
+    except Exception:
+        return None
+
+
+def _cache_remove_unit(user_id: str, unitid: int) -> None:
+    q = _REC_CACHE.get(user_id)
+    if not q:
+        return
+    try:
+        remaining: Deque[Tuple[int, float | None]] = deque(maxlen=q.maxlen)
+        for u, s in list(q):
+            if int(u) != int(unitid):
+                remaining.append((u, s))
+        _REC_CACHE[user_id] = remaining
+    except Exception:
+        pass
+
+
+def _cache_size(user_id: str) -> int:
+    q = _REC_CACHE.get(user_id)
+    return len(q) if q else 0
+
+
+def _ensure_min_cache_async(user_id: str) -> None:
+    # Avoid duplicate fills per user
+    if _REC_INFLIGHT.get(user_id):
+        return
+    _REC_INFLIGHT[user_id] = True
+    async def _bg_fill():
+        try:
+            # Fetch seen set
+            from .db import get_connection as _get_conn
+            import snowflake.connector as _sf
+            def _fetch_seen():
+                with _get_conn() as conn:
+                    with conn.cursor(_sf.DictCursor) as cur:  # type: ignore
+                        cur.execute(
+                            """
+                            SELECT UNITID FROM DATA_LAKE.PUBLIC.USER_LIKES WHERE USER_ID = %s
+                            UNION
+                            SELECT UNITID FROM DATA_LAKE.PUBLIC.USER_DISLIKES WHERE USER_ID = %s
+                            """,
+                            (user_id, user_id),
+                        )
+                        return {int(r["UNITID"]) for r in cur.fetchall()}
+            seen_unitids = await anyio.to_thread.run_sync(_fetch_seen)
+            # Determine how many to fetch to reach MIN
+            need = max(0, _REC_CACHE_MIN - _cache_size(user_id))
+            if need <= 0:
+                return
+            recs = await anyio.to_thread.run_sync(
+                lambda: recommend_top_k(user_id=user_id, top_k=min(20, need), horizon_days=180, force_refresh=True)
+            )
+            recs = [rec for rec in recs if int(rec.get("unitid")) not in seen_unitids]
+            _cache_push(user_id, recs)
+        except Exception:
+            pass
+        finally:
+            _REC_INFLIGHT[user_id] = False
+    asyncio.create_task(_bg_fill())
+
+
 @app.get("/universities/recommendations")
 async def universities_recommendations(user_id: str, top_k: int = 10):
     logger = logging.getLogger("uvicorn")
@@ -499,27 +614,7 @@ async def universities_recommendations(user_id: str, top_k: int = 10):
         return {"items": [rand] if isinstance(rand, dict) else []}
 
     try:
-        # Use KumoRFM-based recommender abstraction
-        recs = recommend_top_k(user_id=user_id, top_k=min(20, max(10, top_k)), horizon_days=180)
-        unitids = [r["unitid"] for r in recs]
-        score_by_unitid = {int(r["unitid"]): float(r.get("score", 0.0)) for r in recs}
-        if not unitids:
-            rand = await university_random()
-            return {"items": [rand] if isinstance(rand, dict) else []}
-
-        from .db import get_connection
-        import snowflake.connector
-        placeholders = ",".join(["%s"] * len(unitids))
-        cols = ", ".join(UNIVERSITY_COLUMNS)
-        def _fetch_unis():
-            with get_connection() as conn:
-                with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
-                    cur.execute(
-                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID IN ({placeholders})",
-                        tuple(unitids),
-                    )
-                    return cur.fetchall()
-        # Exclude already liked/disliked unitids for this user
+        # Fetch seen unitids (likes + dislikes) to avoid serving repeats
         from .db import get_connection as _get_conn
         import snowflake.connector as _sf
         def _fetch_seen():
@@ -535,91 +630,64 @@ async def universities_recommendations(user_id: str, top_k: int = 10):
                     )
                     return {int(r["UNITID"]) for r in cur.fetchall()}
         seen_unitids = await anyio.to_thread.run_sync(_fetch_seen)
-        filtered_unitids = [u for u in unitids if int(u) not in seen_unitids]
-        # Cleaning: if all candidates are seen, trigger unseen fallback instead of returning seen items
-        if not filtered_unitids:
-            logger.info("All RFM candidates already seen for user %s; cleaning applied → unseen fallback.", user_id)
-        # Fetch university rows for filtered unitids
-        unitids = filtered_unitids[: max(1, int(top_k))]
-        if not unitids:
-            # Try popularity-based unseen fallback
-            def _fetch_popular_unseen():
+
+        # Strategy:
+        # 1) If cache has items, pop an unseen one and serve it immediately; top-up 1 in background.
+        # 2) If cache empty or all seen, synchronously compute 2 RFM recs, serve first, cache the rest.
+        served: Tuple[int, float | None] | None = None
+        while True:
+            cand = _cache_pop(user_id)
+            if cand is None:
+                break
+            if int(cand[0]) not in seen_unitids:
+                served = cand
+                break
+
+        from .db import get_connection
+        import snowflake.connector
+        cols = ", ".join(UNIVERSITY_COLUMNS)
+
+        async def _serve_unitid(uid: int, score: float | None):
+            def _fetch_one(uid_local: int):
                 with get_connection() as conn:
                     with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
-                        if seen_unitids:
-                            placeholders_seen = ",".join(["%s"] * len(seen_unitids))
-                            cur.execute(
-                                f"""
-                                SELECT u.{cols}
-                                FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA u
-                                JOIN (
-                                    SELECT UNITID, COUNT(*) AS c
-                                    FROM DATA_LAKE.PUBLIC.USER_LIKES
-                                    GROUP BY UNITID
-                                    ORDER BY c DESC
-                                ) p ON p.UNITID = u.UNITID
-                                WHERE u.UNITID NOT IN ({placeholders_seen})
-                                LIMIT %s
-                                """,
-                                tuple(seen_unitids) + (max(1, int(top_k)),),
-                            )
-                        else:
-                            cur.execute(
-                                f"""
-                                SELECT {cols}
-                                FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA
-                                ORDER BY RANDOM()
-                                LIMIT %s
-                                """,
-                                (max(1, int(top_k)),),
-                            )
-                        return cur.fetchall()
-            uni_rows = await anyio.to_thread.run_sync(_fetch_popular_unseen)
-            # Build items and return early (scores unknown here)
-            items = []
-            for r in uni_rows:
-                u = _row_to_university(r)
-                u["score"] = None
-                u["images"] = await fetch_top_images_for_unitid(int(u["unitid"]))
-                items.append(u)
-            logger.info("Fallback (unseen random/popular) for user %s: %s", user_id, ", ".join([str(i.get("institution_name")) for i in items]))
-            return {"items": items}
-        def _fetch_unis_for(ids_tuple):
-            with get_connection() as conn:
-                with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
-                    placeholders_local = ",".join(["%s"] * len(ids_tuple))
-                    cur.execute(
-                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID IN ({placeholders_local})",
-                        ids_tuple,
-                    )
-                    return cur.fetchall()
-        uni_rows = await anyio.to_thread.run_sync(lambda: _fetch_unis_for(tuple(unitids)))
-        rank = {u: i for i, u in enumerate(unitids)}
-        uni_rows.sort(key=lambda r: rank.get(int(r["UNITID"]), 10**9))
-        # Build response items with scores and images
-        items = []
-        for r in uni_rows[: max(1, int(top_k))]:
-            u = _row_to_university(r)
-            uid_int = int(u["unitid"]) if u.get("unitid") is not None else None
-            if uid_int is not None:
-                u["score"] = score_by_unitid.get(uid_int)
-            u["images"] = await fetch_top_images_for_unitid(int(u["unitid"]))
-            items.append(u)
-        # Log top recommendations with names and scores for debugging/inspection
-        try:
-            log_lines = []
-            for it in items:
-                name = it.get("institution_name")
-                uid = it.get("unitid")
-                score = it.get("score")
-                if score is None:
-                    log_lines.append(f"{name} (unitid={uid})")
-                else:
-                    log_lines.append(f"{name} (unitid={uid}, score={score:.4f})")
-            logger.info("Top %s recommendations for user %s: %s", len(items), user_id, ", ".join(log_lines))
-        except Exception:
-            pass
-        return {"items": items}
+                        cur.execute(
+                            f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID = %s",
+                            (uid_local,),
+                        )
+                        return cur.fetchone()
+            row = await anyio.to_thread.run_sync(lambda: _fetch_one(uid))
+            if not row:
+                rand = await university_random()
+                return {"items": [rand] if isinstance(rand, dict) else []}
+            u = _row_to_university(row)
+            u["score"] = score
+            # Skip images here for speed; frontend fetches via /images/by-unitid if needed
+            return {"items": [u]}
+
+        if served is not None:
+            async def _topup():
+                try:
+                    r = await anyio.to_thread.run_sync(lambda: recommend_top_k(user_id=user_id, top_k=1, horizon_days=180, force_refresh=True))
+                    filtered = [rec for rec in r if int(rec.get("unitid")) not in seen_unitids]
+                    _cache_push(user_id, filtered)
+                except Exception:
+                    pass
+            asyncio.create_task(_topup())
+            # Ensure target minimum cache size in background
+            _ensure_min_cache_async(user_id)
+            return await _serve_unitid(served[0], served[1])
+
+        # Cache miss: compute 2 recs synchronously, serve first, cache the rest
+        recs = await anyio.to_thread.run_sync(lambda: recommend_top_k(user_id=user_id, top_k=max(2, _REC_CACHE_MIN), horizon_days=180, force_refresh=True))
+        recs = [rec for rec in recs if int(rec.get("unitid")) not in seen_unitids]
+        if not recs:
+            # Absolute fallback if RFM empty
+            rand = await university_random()
+            return {"items": [rand] if isinstance(rand, dict) else []}
+        first, rest = recs[0], recs[1:]
+        _cache_push(user_id, rest)
+        return await _serve_unitid(int(first.get("unitid")), float(first.get("score", 0.0)))
     except Exception as e:
         logger = logging.getLogger("uvicorn")
         logger.info("RFM recommendations error for user %s: %s; fallback to random", user_id, e)

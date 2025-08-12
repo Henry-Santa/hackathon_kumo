@@ -338,6 +338,16 @@ def persona_selectors(df: pd.DataFrame) -> Dict[str, Tuple[Callable[[pd.DataFram
         pool = [u for u in top_n_unitids(d, score, 200) if int(u) not in set(liked)]
         return pool[:120]
 
+    def selective_likes(d: pd.DataFrame) -> List[int]:
+        mask = d["PERCENT_ADMITTED_TOTAL"].fillna(100) < 30
+        return d.loc[mask, "UNITID"].dropna().astype(int).tolist()
+
+    def selective_dislikes(d: pd.DataFrame, liked: List[int]) -> List[int]:
+        mask = d["PERCENT_ADMITTED_TOTAL"].fillna(0) > 75
+        ids = d.loc[mask, "UNITID"].dropna().astype(int).tolist()
+        liked_set = set(int(u) for u in liked)
+        return [int(u) for u in ids if int(u) not in liked_set]
+
     return {
         "ivy": (ivy_likes, ivy_dislikes),
         "jock": (jock_likes, jock_dislikes),
@@ -348,6 +358,7 @@ def persona_selectors(df: pd.DataFrame) -> Dict[str, Tuple[Callable[[pd.DataFram
         "stem": (stem_likes, stem_dislikes),
         "cost": (cost_sensitive_likes, cost_sensitive_dislikes),
         "urban": (urbanite_likes, urbanite_dislikes),
+        "selective": (selective_likes, selective_dislikes),
         # New curated selectors
         "near_ivy": (
             lambda d: pick_by_names(d, NEAR_IVY_NAMES, 100),
@@ -488,6 +499,19 @@ def main():
                 sat_erw_range=(680, 780),
                 sat_math_range=(700, 800),
                 act_range=(33, 36),
+                users_to_create=8,
+            ),
+            Persona(
+                name="selective_acceptance",
+                email_prefix="sel",
+                state_pool=[],
+                race_pool=RACES,
+                gender_pool=["Male", "Female"],
+                likes_selector=sel["selective"][0],
+                dislikes_selector=sel["selective"][1],
+                sat_erw_range=(650, 760),
+                sat_math_range=(670, 800),
+                act_range=(32, 36),
                 users_to_create=8,
             ),
             Persona(
