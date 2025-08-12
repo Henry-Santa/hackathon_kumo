@@ -36,3 +36,17 @@ def execute(query: str, params: tuple | None = None):
             conn.commit()
 
 
+def execute_many(query: str, seq_of_params: list[tuple] | list[dict]):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(query, seq_of_params)
+            conn.commit()
+
+
+def fetch_all(query: str, params: tuple | dict | None = None):
+    with get_connection() as conn:
+        with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
+            cur.execute(query, params or ())
+            return cur.fetchall()
+
+

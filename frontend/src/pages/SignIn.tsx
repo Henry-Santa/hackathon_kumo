@@ -24,7 +24,7 @@ export default function SignIn() {
       }
       const data = await res.json();
       localStorage.setItem('token', data.token);
-      navigate('/');
+      navigate('/profile');
     } catch (err: any) {
       setError(err.message);
     } finally {

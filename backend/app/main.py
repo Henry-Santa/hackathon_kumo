@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from .db import fetch_one, execute
+from .db import fetch_one, execute, fetch_all
 from .security import hash_password, verify_password, issue_jwt, decode_jwt
 from enum import Enum
 from .estimators import (
@@ -13,6 +13,14 @@ from .estimators import (
 )
 from .config import settings
 import logging
+from .images import (
+    fetch_wikidata_images,
+    commons_file_url,
+    fetch_images_for_unitid,
+    fetch_top_images_for_unitid,
+)
+import anyio
+import asyncio
 
 
 app = FastAPI(title="College Matcher API")
@@ -273,9 +281,83 @@ def dislike(req: SwipeRequest, user_id: str = Depends(require_auth)):
     return {"status": "ok"}
 
 
+@app.delete("/likes")
+def unlike(req: SwipeRequest, user_id: str = Depends(require_auth)):
+    execute(
+        "DELETE FROM DATA_LAKE.PUBLIC.USER_LIKES WHERE USER_ID = %(user)s AND UNITID = %(u)s",
+        {"user": user_id, "u": req.unitid},
+    )
+    return {"status": "ok"}
+
+
+@app.delete("/dislikes")
+def undislike(req: SwipeRequest, user_id: str = Depends(require_auth)):
+    execute(
+        "DELETE FROM DATA_LAKE.PUBLIC.USER_DISLIKES WHERE USER_ID = %(user)s AND UNITID = %(u)s",
+        {"user": user_id, "u": req.unitid},
+    )
+    return {"status": "ok"}
+
+
 @app.get("/me")
 def me(user_id: str = Depends(require_auth)):
-    return {"user_id": user_id}
+    row = fetch_one(
+        """
+        SELECT USER_ID, EMAIL, GENDER, STATE_ABBREVIATION, RACE_ETHNICITY,
+               SAT_ERW, SAT_MATH, ACT_COMPOSITE
+        FROM DATA_LAKE.PUBLIC.USERS
+        WHERE USER_ID = %(uid)s
+        """,
+        {"uid": user_id},
+    )
+    if not row:
+        return {"user_id": user_id}
+    return {
+        "user_id": row["USER_ID"],
+        "email": row["EMAIL"],
+        "gender": row.get("GENDER"),
+        "state": row.get("STATE_ABBREVIATION"),
+        "race_ethnicity": row.get("RACE_ETHNICITY"),
+        "sat_erw": row.get("SAT_ERW"),
+        "sat_math": row.get("SAT_MATH"),
+        "act_composite": row.get("ACT_COMPOSITE"),
+    }
+
+
+class UpdateMeRequest(BaseModel):
+    gender: str | None = None
+    state_abbreviation: str | None = None
+    race_ethnicity: str | None = None
+    sat_erw: int | None = None
+    sat_math: int | None = None
+    act_composite: int | None = None
+
+
+@app.patch("/me")
+def update_me(req: UpdateMeRequest, user_id: str = Depends(require_auth)):
+    execute(
+        """
+        UPDATE DATA_LAKE.PUBLIC.USERS
+        SET
+          GENDER = COALESCE(%(gender)s, GENDER),
+          STATE_ABBREVIATION = COALESCE(%(state)s, STATE_ABBREVIATION),
+          RACE_ETHNICITY = COALESCE(%(race)s, RACE_ETHNICITY),
+          SAT_ERW = COALESCE(%(sat_erw)s, SAT_ERW),
+          SAT_MATH = COALESCE(%(sat_math)s, SAT_MATH),
+          ACT_COMPOSITE = COALESCE(%(act)s, ACT_COMPOSITE)
+        WHERE USER_ID = %(uid)s
+        """,
+        {
+            "gender": req.gender,
+            "state": req.state_abbreviation,
+            "race": req.race_ethnicity,
+            "sat_erw": req.sat_erw,
+            "sat_math": req.sat_math,
+            "act": req.act_composite,
+            "uid": user_id,
+        },
+    )
+    return {"status": "ok"}
 
 
 class EstimateRequest(BaseModel):
@@ -312,5 +394,159 @@ def estimate(req: EstimateRequest):
         "sat_total": sat_total,
         "act_composite": act_est,
     }
+
+
+@app.get("/images/sample")
+async def images_sample(limit: int = 50):
+    rows = await fetch_wikidata_images()
+    rows = rows[: max(0, min(limit, len(rows)))]
+    # Attach a fetchable URL
+    for r in rows:
+        r["image_url"] = commons_file_url(r["image"], width=800)
+    return {"count": len(rows), "items": rows}
+
+
+@app.get("/images/by-unitid/{unitid}")
+async def images_by_unitid(unitid: int, limit: int = 5):
+    rows = await fetch_top_images_for_unitid(unitid, limit=limit)
+    return {"unitid": unitid, "count": len(rows), "items": rows}
+
+
+UNIVERSITY_COLUMNS = [
+    "UNITID",
+    "INSTITUTION_NAME",
+    "YEAR",
+    "CITY_LOCATION_OF_INSTITUTION",
+    "STATE_ABBREVIATION",
+    "INSTITUTIONS_INTERNET_WEBSITE_ADDRESS",
+    "PERCENT_ADMITTED_TOTAL",
+    "ADMISSIONS_YIELD_TOTAL",
+    "TUITION_AND_FEES_2023_24",
+    "TOTAL_PRICE_FOR_IN_STATE_STUDENTS_LIVING_ON_CAMPUS_2023_24",
+    "TOTAL_PRICE_FOR_OUT_OF_STATE_STUDENTS_LIVING_ON_CAMPUS_2023_24",
+    "INSTITUTION_SIZE_CATEGORY",
+    "LEVEL_OF_INSTITUTION",
+    "CONTROL_OF_INSTITUTION",
+    "DEGREE_OF_URBANIZATION_URBAN_CENTRIC_LOCALE",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_AMERICAN_INDIAN_OR_ALASKA_NATIVE",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_ASIAN",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_BLACK_OR_AFRICAN_AMERICAN",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_HISPANIC_LATINO",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_NATIVE_HAWAIIAN_OR_OTHER_PACIFIC_ISLANDER",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_WHITE",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_TWO_OR_MORE_RACES",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_RACE_ETHNICITY_UNKNOWN",
+    "PERCENT_OF_UNDERGRADUATE_ENROLLMENT_THAT_ARE_WOMEN",
+    "FULL_TIME_RETENTION_RATE_2023",
+    "STUDENT_TO_FACULTY_RATIO",
+    "GRADUATION_RATE_TOTAL_COHORT",
+    "PERCENT_OF_FULL_TIME_FIRST_TIME_UNDERGRADUATES_AWARDED_ANY_FINANCIAL_AID",
+    "AVERAGE_AMOUNT_OF_FEDERAL_STATE_LOCAL_OR_INSTITUTIONAL_GRANT_AID_AWARDED",
+    "AVERAGE_NET_PRICE_STUDENTS_AWARDED_GRANT_OR_SCHOLARSHIP_AID_2022_23",
+    "APPLICANTS_TOTAL",
+    "PERCENT_OF_FIRST_TIME_DEGREE_CERTIFICATE_SEEKING_STUDENTS_SUBMITTING_SAT_SCORES",
+    "PERCENT_OF_FIRST_TIME_DEGREE_CERTIFICATE_SEEKING_STUDENTS_SUBMITTING_ACT_SCORES",
+    "SAT_EVIDENCE_BASED_READING_AND_WRITING_25TH_PERCENTILE_SCORE",
+    "SAT_EVIDENCE_BASED_READING_AND_WRITING_50TH_PERCENTILE_SCORE",
+    "SAT_EVIDENCE_BASED_READING_AND_WRITING_75TH_PERCENTILE_SCORE",
+    "SAT_MATH_25TH_PERCENTILE_SCORE",
+    "SAT_MATH_50TH_PERCENTILE_SCORE",
+    "SAT_MATH_75TH_PERCENTILE_SCORE",
+    "ACT_COMPOSITE_25TH_PERCENTILE_SCORE",
+    "ACT_COMPOSITE_50TH_PERCENTILE_SCORE",
+    "ACT_COMPOSITE_75TH_PERCENTILE_SCORE"
+]
+
+
+def _row_to_university(row: dict) -> dict:
+    return {k.lower(): row.get(k) for k in UNIVERSITY_COLUMNS}
+
+
+@app.get("/universities/random")
+async def university_random():
+    cols = ", ".join(UNIVERSITY_COLUMNS)
+    query = f"""
+        SELECT {cols}
+        FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA
+        ORDER BY RANDOM()
+        LIMIT 1
+    """
+    row = await anyio.to_thread.run_sync(lambda: fetch_one(query))
+    if not row:
+        return {"error": "no data"}
+    uni = _row_to_university(row)
+    images = await fetch_top_images_for_unitid(int(uni["unitid"]))
+    uni["images"] = images
+    return uni
+
+
+@app.get("/me/likes")
+def list_likes(user_id: str = Depends(require_auth)):
+    rows = fetch_all(
+        """
+        SELECT l.UNITID, u.INSTITUTION_NAME, l.CREATED_AT
+        FROM DATA_LAKE.PUBLIC.USER_LIKES l
+        JOIN DATA_LAKE.PUBLIC.UNIVERSITY_DATA u ON u.UNITID = l.UNITID
+        WHERE l.USER_ID = %(uid)s
+        ORDER BY l.CREATED_AT DESC
+        """,
+        {"uid": user_id},
+    )
+    return {"items": rows}
+
+
+@app.get("/me/dislikes")
+def list_dislikes(user_id: str = Depends(require_auth)):
+    rows = fetch_all(
+        """
+        SELECT d.UNITID, u.INSTITUTION_NAME, d.CREATED_AT
+        FROM DATA_LAKE.PUBLIC.USER_DISLIKES d
+        JOIN DATA_LAKE.PUBLIC.UNIVERSITY_DATA u ON u.UNITID = d.UNITID
+        WHERE d.USER_ID = %(uid)s
+        ORDER BY d.CREATED_AT DESC
+        """,
+        {"uid": user_id},
+    )
+    return {"items": rows}
+
+
+@app.get("/universities/search")
+async def universities_search(q: str, state: str | None = None, limit: int = 20):
+    cols = ", ".join(UNIVERSITY_COLUMNS)
+    like = f"%{q}%"
+    from .db import get_connection
+    import snowflake.connector
+    def _q():
+        with get_connection() as conn:
+            with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
+                if state:
+                    cur.execute(
+                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE INSTITUTION_NAME ILIKE %s AND STATE_ABBREVIATION = %s LIMIT %s",
+                        (like, state, limit),
+                    )
+                else:
+                    cur.execute(
+                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE INSTITUTION_NAME ILIKE %s LIMIT %s",
+                        (like, limit),
+                    )
+                return cur.fetchall()
+    rows = await anyio.to_thread.run_sync(_q)
+    return {"items": [_row_to_university(r) for r in rows]}
+
+@app.get("/universities/{unitid}")
+async def university_by_unitid(unitid: int):
+    cols = ", ".join(UNIVERSITY_COLUMNS)
+    row = await anyio.to_thread.run_sync(
+        lambda: fetch_one(
+            f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID = %(u)s",
+            {"u": unitid},
+        )
+    )
+    if not row:
+        return {"error": "not found"}
+    uni = _row_to_university(row)
+    images = await fetch_top_images_for_unitid(int(uni["unitid"]))
+    uni["images"] = images
+    return uni
 
 
