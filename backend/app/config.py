@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 import os
 
 
@@ -10,7 +11,7 @@ class Settings(BaseModel):
     snowflake_database: str = "DATA_LAKE"
     snowflake_schema: str = "PUBLIC"
     snowflake_insecure: bool = False
-    kumo_api_key: str | None = None
+    kumo_api_key: Optional[str] = None
     jwt_secret: str = "dev-secret-change-me"
     jwt_iss: str = "college-matcher"
     jwt_aud: str = "college-matcher-web"
@@ -18,7 +19,7 @@ class Settings(BaseModel):
     @staticmethod
     def load() -> "Settings":
         # Avoid external dotenv dependency in prod runners; rely on environment
-        def _to_bool(v: str | None, default: bool = False) -> bool:
+        def _to_bool(v: Optional[str], default: bool = False) -> bool:
             if v is None:
                 return default
             return v.strip().lower() in {"1", "true", "yes", "y", "on"}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Optional, Union, List, Dict, Tuple
 import snowflake.connector
 from .config import settings
 
@@ -22,28 +23,28 @@ def get_connection():
     )
 
 
-def fetch_one(query: str, params: tuple | None = None):
+def fetch_one(query: str, params: Optional[Tuple] = None):
     with get_connection() as conn:
         with conn.cursor(snowflake.connector.DictCursor) as cur:
             cur.execute(query, params or ())
             return cur.fetchone()
 
 
-def execute(query: str, params: tuple | None = None):
+def execute(query: str, params: Optional[Tuple] = None):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(query, params or ())
             conn.commit()
 
 
-def execute_many(query: str, seq_of_params: list[tuple] | list[dict]):
+def execute_many(query: str, seq_of_params: Union[List[Tuple], List[Dict]]):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(query, seq_of_params)
             conn.commit()
 
 
-def fetch_all(query: str, params: tuple | dict | None = None):
+def fetch_all(query: str, params: Optional[Union[Tuple, Dict]] = None):
     with get_connection() as conn:
         with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
             cur.execute(query, params or ())

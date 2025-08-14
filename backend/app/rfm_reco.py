@@ -4,8 +4,13 @@ import os
 import pandas as pd
 import snowflake.connector
 import kumoai.experimental.rfm as rfm
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 from .config import settings
+from .cache_manager import graph_cache
+import logging
+import time
+
+logger = logging.getLogger("uvicorn")
 
 
 def _sf_conn():
@@ -92,8 +97,6 @@ def _load_frames():
     return users_df, unis_df, likes_df, dislikes_df
 
 
-_GRAPH = None
-_MODEL = None
 _INIT = False
 
 
@@ -108,11 +111,16 @@ def _ensure_init():
     _INIT = True
 
 
-def _build_graph(force_refresh: bool = False):
-    global _GRAPH, _MODEL
-    if not force_refresh and _GRAPH is not None and _MODEL is not None:
-        return _GRAPH, _MODEL
-
+def _build_graph(force_refresh: bool = False, cache_key: str = "default") -> Tuple[any, any]:
+    # Try to get from cache first
+    if not force_refresh:
+        graph, model = graph_cache.get(cache_key)
+        if graph is not None and model is not None:
+            return graph, model
+    
+    logger.info(f"Building graph for cache_key={cache_key}, force_refresh={force_refresh}")
+    start_time = time.time()
+    
     _ensure_init()
     users_df, unis_df, likes_df, dislikes_df = _load_frames()
 
@@ -149,13 +157,27 @@ def _build_graph(force_refresh: bool = False):
     graph.validate()
 
     model = rfm.KumoRFM(graph)
-    _GRAPH, _MODEL = graph, model
+    
+    # Cache the graph and model
+    graph_cache.set(cache_key, graph, model)
+    
+    logger.info(f"Graph built and cached in {time.time() - start_time:.2f}s")
     return graph, model
 
 
-def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, force_refresh: bool = True) -> List[Dict]:
-    # Always rebuild graph by default so latest likes/dislikes are reflected
-    _, model = _build_graph(force_refresh=force_refresh)
+def invalidate_cache(user_id: Optional[str] = None) -> None:
+    """Invalidate the graph cache, optionally for a specific user."""
+    if user_id:
+        graph_cache.invalidate_user(user_id)
+    else:
+        graph_cache.invalidate()
+    logger.info(f"Cache invalidated for user={user_id or 'all'}")
+
+
+def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, force_refresh: bool = False) -> List[Dict]:
+    # Use smart caching instead of always rebuilding
+    cache_key = "default"  # Could be user-specific if needed
+    _, model = _build_graph(force_refresh=force_refresh, cache_key=cache_key)
     # Foundation model limit is 20
     k = max(1, min(int(top_k), 20))
     uid = (user_id or "").replace("'", "''")
@@ -168,7 +190,7 @@ def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, forc
     )
     df = model.predict(query, run_mode='normal', num_hops=6)
     out: List[Dict] = []
-    print(df)
+    
     # Fetch user's disliked unitids and filter them out
     try:
         with _sf_conn() as conn:
@@ -178,7 +200,8 @@ def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, forc
                 params={"u": user_id},
             )
             disliked_set = set(pd.to_numeric(disliked_df.get("UNITID"), errors="coerce").dropna().astype(int).tolist())
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to fetch dislikes for user {user_id}: {e}")
         disliked_set = set()
 
     for _, row in df.iterrows():
@@ -187,9 +210,11 @@ def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, forc
             if unitid_val in disliked_set:
                 continue
             out.append({"unitid": unitid_val, "score": float(row.get("SCORE", 0.0))})
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to process prediction row: {e}")
             continue
-    print(out)
+    
+    logger.info(f"Generated {len(out)} recommendations for user {user_id}")
     return out
 
 
