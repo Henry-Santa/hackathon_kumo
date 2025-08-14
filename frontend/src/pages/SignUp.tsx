@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function SignUp() {
@@ -15,6 +15,14 @@ export default function SignUp() {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Redirect if already authenticated
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/profile');
+    }
+  }, [navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -47,7 +55,7 @@ export default function SignUp() {
       }
       const data = await res.json();
       localStorage.setItem('token', data.token);
-      navigate('/');
+      navigate('/profile');
     } catch (err: any) {
       setError(err.message);
     } finally {

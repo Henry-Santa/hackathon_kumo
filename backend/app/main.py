@@ -540,7 +540,7 @@ def _cache_size(user_id: str) -> int:
     return rec_cache.size(user_id)
 
 
-def _ensure_min_cache_async(user_id: str) -> None:
+async def _ensure_min_cache_async(user_id: str) -> None:
     async def _bg_fill():
         # Use async lock to prevent duplicate fills
         lock = await rec_cache.get_inflight_lock(user_id)
@@ -605,6 +605,9 @@ async def universities_recommendations(user_id: str, top_k: int = 10):
             if int(cand[0]) not in seen_unitids:
                 served = cand
                 break
+        
+        # Print cache contents for debugging
+        print(f"Cache contents for user {user_id}: {list(rec_cache._cache.get(user_id, []))}")
 
         from .db import get_connection
         import snowflake.connector

@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import Topbar from './components/Topbar';
+import AuthGuard from './components/AuthGuard';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import UniversityProfile from './pages/UniversityProfile';
@@ -23,9 +24,30 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
-      { path: '/profile', element: <UniversityProfile /> },
-      { path: '/account', element: <ProfilePage /> },
-      { path: '/search', element: <SearchPage /> },
+      { 
+        path: '/profile', 
+        element: (
+          <AuthGuard>
+            <UniversityProfile />
+          </AuthGuard>
+        ) 
+      },
+      { 
+        path: '/account', 
+        element: (
+          <AuthGuard>
+            <ProfilePage />
+          </AuthGuard>
+        ) 
+      },
+      { 
+        path: '/search', 
+        element: (
+          <AuthGuard>
+            <SearchPage />
+          </AuthGuard>
+        ) 
+      },
     ],
   },
 ]);
