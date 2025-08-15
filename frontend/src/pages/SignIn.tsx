@@ -41,27 +41,40 @@ export default function SignIn() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '64px auto', fontFamily: 'Inter, system-ui, Arial' }}>
-      <h1>Sign in</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button disabled={loading} type="submit">{loading ? 'Signing in...' : 'Sign in'}</button>
-      </form>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      <p style={{ marginTop: 12 }}>No account? <Link to="/signup">Create one</Link></p>
+    <div className="container" style={{ maxWidth: 520 }}>
+      <div className="card">
+        <h1>Welcome back</h1>
+        <div className="muted">Sign in to continue</div>
+        <form onSubmit={handleSubmit} className="grid" style={{ gap: 12, marginTop: 12 }}>
+          <div className="field">
+            <label>Email</label>
+            <input
+              className="input"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Password</label>
+            <input
+              className="input"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <button className="btn primary" disabled={loading} type="submit">{loading ? 'Signing in…' : 'Sign in'}</button>
+          </div>
+        </form>
+        {error && <p className="muted" style={{ color: 'var(--danger)', marginTop: 8 }}>{error}</p>}
+        <p className="muted" style={{ marginTop: 12 }}>No account? <Link to="/signup">Create one</Link></p>
+      </div>
     </div>
   );
 }

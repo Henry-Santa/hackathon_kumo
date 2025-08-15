@@ -64,104 +64,136 @@ export default function SignUp() {
   };
 
   return (
-    <div style={{ maxWidth: 520, margin: '64px auto', fontFamily: 'Inter, system-ui, Arial' }}>
-      <h1>Create account</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-        <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
-        <input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} required />
+    <div className="container" style={{ maxWidth: 720 }}>
+      <div className="card">
+        <h1>Create account</h1>
+        <div className="muted">Tell us a bit about you</div>
+        <form onSubmit={handleSubmit} className="grid" style={{ gap: 12, marginTop: 12 }}>
+          <div className="grid cols-2">
+            <div className="field">
+              <label>Email</label>
+              <input className="input" name="email" type="email" placeholder="you@example.com" value={form.email} onChange={handleChange} required />
+            </div>
+            <div className="field">
+              <label>Password</label>
+              <input className="input" name="password" type="password" placeholder="••••••••" value={form.password} onChange={handleChange} required />
+            </div>
+          </div>
 
-        <select name="gender" value={form.gender} onChange={handleChange}>
-          <option value="">Gender (optional)</option>
-          <option>Male</option>
-          <option>Female</option>
-          <option>Nonbinary</option>
-          <option>Prefer not to say</option>
-        </select>
+          <div className="grid cols-3">
+            <div className="field">
+              <label>Gender (optional)</label>
+              <select className="select" name="gender" value={form.gender} onChange={handleChange}>
+                <option value="">Select…</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Nonbinary</option>
+                <option>Prefer not to say</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>State/Territory (optional)</label>
+              <select className="select" name="state" value={form.state} onChange={handleChange}>
+                <option value="">Select…</option>
+                <option>Alabama</option>
+                <option>Alaska</option>
+                <option>Arizona</option>
+                <option>Arkansas</option>
+                <option>California</option>
+                <option>Colorado</option>
+                <option>Connecticut</option>
+                <option>Delaware</option>
+                <option>District of Columbia</option>
+                <option>Florida</option>
+                <option>Georgia</option>
+                <option>Hawaii</option>
+                <option>Idaho</option>
+                <option>Illinois</option>
+                <option>Indiana</option>
+                <option>Iowa</option>
+                <option>Kansas</option>
+                <option>Kentucky</option>
+                <option>Louisiana</option>
+                <option>Maine</option>
+                <option>Maryland</option>
+                <option>Massachusetts</option>
+                <option>Michigan</option>
+                <option>Minnesota</option>
+                <option>Mississippi</option>
+                <option>Missouri</option>
+                <option>Montana</option>
+                <option>Nebraska</option>
+                <option>Nevada</option>
+                <option>New Hampshire</option>
+                <option>New Jersey</option>
+                <option>New Mexico</option>
+                <option>New York</option>
+                <option>North Carolina</option>
+                <option>North Dakota</option>
+                <option>Ohio</option>
+                <option>Oklahoma</option>
+                <option>Oregon</option>
+                <option>Pennsylvania</option>
+                <option>Rhode Island</option>
+                <option>South Carolina</option>
+                <option>South Dakota</option>
+                <option>Tennessee</option>
+                <option>Texas</option>
+                <option>Utah</option>
+                <option>Vermont</option>
+                <option>Virginia</option>
+                <option>Washington</option>
+                <option>West Virginia</option>
+                <option>Wisconsin</option>
+                <option>Wyoming</option>
+                <option>American Samoa</option>
+                <option>Guam</option>
+                <option>Northern Mariana Islands</option>
+                <option>Puerto Rico</option>
+                <option>U.S. Virgin Islands</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Race/Ethnicity (optional)</label>
+              <select className="select" name="race" value={form.race} onChange={handleChange}>
+                <option value="">Select…</option>
+                <option>American Indian or Alaska Native</option>
+                <option>Asian</option>
+                <option>Black or African American</option>
+                <option>Hispanic/Latino</option>
+                <option>Native Hawaiian or Other Pacific Islander</option>
+                <option>White</option>
+                <option>Two or more races</option>
+                <option>Unknown</option>
+                <option>Nonresident</option>
+                <option>Other</option>
+                <option>Prefer not to say</option>
+              </select>
+            </div>
+          </div>
 
-        <select name="state" value={form.state} onChange={handleChange}>
-          <option value="">State/Territory (optional)</option>
-          <option>Alabama</option>
-          <option>Alaska</option>
-          <option>Arizona</option>
-          <option>Arkansas</option>
-          <option>California</option>
-          <option>Colorado</option>
-          <option>Connecticut</option>
-          <option>Delaware</option>
-          <option>District of Columbia</option>
-          <option>Florida</option>
-          <option>Georgia</option>
-          <option>Hawaii</option>
-          <option>Idaho</option>
-          <option>Illinois</option>
-          <option>Indiana</option>
-          <option>Iowa</option>
-          <option>Kansas</option>
-          <option>Kentucky</option>
-          <option>Louisiana</option>
-          <option>Maine</option>
-          <option>Maryland</option>
-          <option>Massachusetts</option>
-          <option>Michigan</option>
-          <option>Minnesota</option>
-          <option>Mississippi</option>
-          <option>Missouri</option>
-          <option>Montana</option>
-          <option>Nebraska</option>
-          <option>Nevada</option>
-          <option>New Hampshire</option>
-          <option>New Jersey</option>
-          <option>New Mexico</option>
-          <option>New York</option>
-          <option>North Carolina</option>
-          <option>North Dakota</option>
-          <option>Ohio</option>
-          <option>Oklahoma</option>
-          <option>Oregon</option>
-          <option>Pennsylvania</option>
-          <option>Rhode Island</option>
-          <option>South Carolina</option>
-          <option>South Dakota</option>
-          <option>Tennessee</option>
-          <option>Texas</option>
-          <option>Utah</option>
-          <option>Vermont</option>
-          <option>Virginia</option>
-          <option>Washington</option>
-          <option>West Virginia</option>
-          <option>Wisconsin</option>
-          <option>Wyoming</option>
-          <option>American Samoa</option>
-          <option>Guam</option>
-          <option>Northern Mariana Islands</option>
-          <option>Puerto Rico</option>
-          <option>U.S. Virgin Islands</option>
-        </select>
-        <select name="race" value={form.race} onChange={handleChange}>
-          <option value="">Race/Ethnicity (optional)</option>
-          <option>American Indian or Alaska Native</option>
-          <option>Asian</option>
-          <option>Black or African American</option>
-          <option>Hispanic/Latino</option>
-          <option>Native Hawaiian or Other Pacific Islander</option>
-          <option>White</option>
-          <option>Two or more races</option>
-          <option>Unknown</option>
-          <option>Nonresident</option>
-          <option>Other</option>
-          <option>Prefer not to say</option>
-        </select>
+          <div className="grid cols-3">
+            <div className="field">
+              <label>SAT ERW</label>
+              <input className="input" name="satErw" placeholder="e.g. 650" value={form.satErw} onChange={handleChange} />
+            </div>
+            <div className="field">
+              <label>SAT Math</label>
+              <input className="input" name="satMath" placeholder="e.g. 680" value={form.satMath} onChange={handleChange} />
+            </div>
+            <div className="field">
+              <label>ACT</label>
+              <input className="input" name="act" placeholder="e.g. 30" value={form.act} onChange={handleChange} />
+            </div>
+          </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <input name="satErw" placeholder="SAT ERW" value={form.satErw} onChange={handleChange} />
-          <input name="satMath" placeholder="SAT Math" value={form.satMath} onChange={handleChange} />
-          <input name="act" placeholder="ACT" value={form.act} onChange={handleChange} />
-        </div>
-
-        <button disabled={loading} type="submit">{loading ? 'Creating...' : 'Create account'}</button>
-      </form>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      <p style={{ marginTop: 12 }}>Have an account? <Link to="/">Sign in</Link></p>
+          <div>
+            <button className="btn primary" disabled={loading} type="submit">{loading ? 'Creating…' : 'Create account'}</button>
+          </div>
+        </form>
+        {error && <p className="muted" style={{ color: 'var(--danger)', marginTop: 8 }}>{error}</p>}
+        <p className="muted" style={{ marginTop: 12 }}>Have an account? <Link to="/">Sign in</Link></p>
+      </div>
     </div>
   );
 }

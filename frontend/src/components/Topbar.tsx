@@ -21,7 +21,10 @@ export default function Topbar() {
 
   return (
     <div className="toolbar">
-      <div style={{ fontWeight: 800 }}>College Matcher</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="pill" style={{ width: 28 }} />
+        <div className="brand" style={{ fontSize: 16 }}>College Matcher</div>
+      </div>
       <nav className="nav" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         {isAuthenticated ? (
           <>
