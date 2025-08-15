@@ -131,8 +131,8 @@ export default function UniversityProfile() {
     };
   }, [uni]);
 
-  if (error) return <p style={{ color: 'crimson' }}>{error}</p>;
-  if (!uni) return <p>Loading university…</p>;
+  if (error) return <div className="container"><p className="muted" style={{ color: 'var(--danger)' }}>{error}</p></div>;
+  if (!uni) return <div className="container"><p className="muted">Loading university…</p></div>;
 
   // Build slides: each slide shows an image + a focused info block. Last slide is image + like/dislike.
   const slides: Array<JSX.Element> = [];
@@ -195,15 +195,15 @@ export default function UniversityProfile() {
   );
 
   return (
-    <div style={{ maxWidth: 1000, margin: '24px auto', fontFamily: 'Inter, system-ui, Arial', padding: 16 }}>
+    <div className="container" style={{ maxWidth: 1000 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
         <h1 style={{ margin: 0 }}>{uni.institution_name}</h1>
-        <span style={{ color: '#666' }}>{na(uni.city_location_of_institution)}, {na(uni.state_abbreviation)}</span>
+        <span className="muted">{na(uni.city_location_of_institution)}, {na(uni.state_abbreviation)}</span>
       </div>
       <div style={{ display: 'flex', gap: 16, margin: '8px 0 16px' }}>
         <a href={uni.institutions_internet_website_address || '#'} target="_blank" rel="noreferrer">Website</a>
         {me && (
-          <span style={{ color: '#444' }}>
+          <span className="muted">
             Your scores: {me.act_composite ? `ACT ${me.act_composite}` : 'ACT N/A'} | {userSatTotal ? `SAT ${userSatTotal}` : 'SAT N/A'}
           </span>
         )}
@@ -294,7 +294,7 @@ function SwipeButton({ kind, unitid, onDone }: { kind: 'like' | 'dislike'; uniti
     }
   };
   return (
-    <button onClick={onClick} disabled={loading} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid #ddd' }}>
+    <button onClick={onClick} disabled={loading} className={`btn ${kind === 'like' ? 'ok' : 'danger'}`}>
       {kind === 'like' ? '👍 Like' : '👎 Dislike'}
     </button>
   );
@@ -337,8 +337,8 @@ function Slides({ slides, footer, index, onIndex }: { slides: Array<JSX.Element>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={prev} disabled={index === 0}>Back</button>
-          <button onClick={next} disabled={atEnd}>Next</button>
+          <button className="btn" onClick={prev} disabled={index === 0}>Back</button>
+          <button className="btn" onClick={next} disabled={atEnd}>Next</button>
         </div>
       </div>
       <div>{slides[index]}</div>

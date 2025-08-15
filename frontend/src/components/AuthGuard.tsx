@@ -19,7 +19,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   }, [navigate]);
 
   if (isAuthenticated === null) {
-    return <div>Loading...</div>;
+    return <div className="container"><div className="muted">Loading…</div></div>;
   }
 
   if (!isAuthenticated) {

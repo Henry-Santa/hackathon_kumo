@@ -52,22 +52,26 @@ export default function ProfilePage() {
       <div className="grid cols-2" style={{ marginTop: 16 }}>
         <div className="card">
           <form onSubmit={update} className="grid" style={{ gap: 10 }}>
-            <label>Email
+            <div className="field">
+              <label>Email</label>
               <input className="input" name="email" value={me?.email || ''} readOnly />
-            </label>
-            <label>Gender
+            </div>
+            <div className="field">
+              <label>Gender</label>
               <input className="input" name="gender" defaultValue={me?.gender || ''} />
-            </label>
-            <label>State
+            </div>
+            <div className="field">
+              <label>State</label>
               <input className="input" name="state_abbreviation" defaultValue={me?.state || ''} />
-            </label>
-            <label>Race/ethnicity
+            </div>
+            <div className="field">
+              <label>Race/ethnicity</label>
               <input className="input" name="race_ethnicity" defaultValue={me?.race_ethnicity || ''} />
-            </label>
+            </div>
             <div className="grid cols-3">
-              <label>SAT ERW<input className="input" name="sat_erw" defaultValue={me?.sat_erw || ''} /></label>
-              <label>SAT Math<input className="input" name="sat_math" defaultValue={me?.sat_math || ''} /></label>
-              <label>ACT<input className="input" name="act_composite" defaultValue={me?.act_composite || ''} /></label>
+              <div className="field"><label>SAT ERW</label><input className="input" name="sat_erw" defaultValue={me?.sat_erw || ''} /></div>
+              <div className="field"><label>SAT Math</label><input className="input" name="sat_math" defaultValue={me?.sat_math || ''} /></div>
+              <div className="field"><label>ACT</label><input className="input" name="act_composite" defaultValue={me?.act_composite || ''} /></div>
             </div>
             <div>
               <button className="btn primary" type="submit">Save</button>
@@ -81,7 +85,7 @@ export default function ProfilePage() {
               <h3>Likes</h3>
               <ul>
                 {likes.map((r) => (
-                  <li key={r.UNITID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <li key={r.UNITID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
                     <span>{r.INSTITUTION_NAME}</span>
                     <button className="btn danger" onClick={() => remove('likes', r.UNITID)}>Remove</button>
                   </li>
@@ -92,7 +96,7 @@ export default function ProfilePage() {
               <h3>Dislikes</h3>
               <ul>
                 {dislikes.map((r) => (
-                  <li key={r.UNITID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <li key={r.UNITID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
                     <span>{r.INSTITUTION_NAME}</span>
                     <button className="btn danger" onClick={() => remove('dislikes', r.UNITID)}>Remove</button>
                   </li>

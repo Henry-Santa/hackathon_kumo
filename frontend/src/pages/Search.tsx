@@ -50,8 +50,8 @@ export default function SearchPage() {
                   <span>{u.institution_name} <span className="muted">{u.state_abbreviation ? `(${u.state_abbreviation})` : ''}</span></span>
                 </span>
                 <span style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn" onClick={() => action(u.unitid, 'likes')}>👍 Like</button>
-                  <button className="btn" onClick={() => action(u.unitid, 'dislikes')}>👎 Dislike</button>
+                  <button className="btn ok" onClick={() => action(u.unitid, 'likes')}>👍 Like</button>
+                  <button className="btn danger" onClick={() => action(u.unitid, 'dislikes')}>👎 Dislike</button>
                 </span>
               </li>
             ))}

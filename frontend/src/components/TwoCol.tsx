@@ -7,7 +7,7 @@ export default function TwoCol({ img, alt, children }: { img?: string; alt: stri
         {img ? (
           <img src={img} alt={alt} style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 8 }} />
         ) : (
-          <div style={{ width: '100%', height: 200, background: '#f3f4f6', borderRadius: 8, display: 'grid', placeItems: 'center', color: '#9ca3af' }}>No image</div>
+          <div style={{ width: '100%', height: 200, background: '#0f1428', border: '1px solid var(--border)', borderRadius: 12, display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>No image</div>
         )}
       </div>
       <div>
