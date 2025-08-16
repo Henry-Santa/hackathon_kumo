@@ -121,6 +121,10 @@ li + li { border-top: 1px solid var(--border); }
 .skeleton { background: linear-gradient(90deg, #12172a, #151b31, #12172a); background-size: 200% 100%; animation: sk 1.5s infinite; }
 @keyframes sk { 0%{background-position:0 0} 100%{background-position:200% 0} }
 
+/* Progress bar */
+.progress { height: 6px; background: #0f1428; border-radius: 999px; border: 1px solid var(--border); overflow: hidden; }
+.progress .bar { height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); box-shadow: 0 0 12px rgba(124,140,255,0.4) inset; }
+
 /* Responsive */
 @media (max-width: 880px) {
   .grid.cols-2 { grid-template-columns: 1fr; }

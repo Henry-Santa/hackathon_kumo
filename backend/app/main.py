@@ -20,7 +20,6 @@ from .images import (
     fetch_top_images_for_unitid,
 )
 from .rfm_reco import recommend_top_k, invalidate_cache
-from .cache_manager import rec_cache
 from .db_optimizer import BatchedQueries
 from typing import Dict, Tuple, List, Optional, Union
 import anyio
@@ -30,8 +29,6 @@ import os
 
 app = FastAPI(title="College Matcher API")
 
-# Cache configuration
-_REC_CACHE_MIN = 3
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,19 +61,6 @@ def log_startup_config():
         "yes" if getattr(settings, "kumo_api_key", None) else "no",
     )
     
-    # Warm up the graph cache on startup
-    try:
-        from .rfm_reco import _build_graph
-        import threading
-        def _warmup():
-            try:
-                _build_graph(force_refresh=True, cache_key="default")
-                logger.info("Graph cache warmed up successfully")
-            except Exception as e:
-                logger.error(f"Failed to warm up graph cache: {e}")
-        threading.Thread(target=_warmup, daemon=True).start()
-    except Exception as e:
-        logger.error(f"Failed to start cache warmup: {e}")
 
 
 class RaceEthnicity(str, Enum):
@@ -243,19 +227,6 @@ def signin(req: SignInRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = issue_jwt(row["USER_ID"], req.email)
-    # Prewarm cache asynchronously so first profile load is instant
-    try:
-        import threading
-        uid = row["USER_ID"]
-        def _prewarm():
-            try:
-                recs = recommend_top_k(user_id=uid, top_k=max(3, _REC_CACHE_MIN), horizon_days=180, force_refresh=False)
-                rec_cache.push(uid, recs)
-            except Exception as e:
-                logger.error(f"Failed to prewarm cache for user {uid}: {e}")
-        threading.Thread(target=_prewarm, daemon=True).start()
-    except Exception:
-        pass
     return {"token": token, "user_id": row["USER_ID"]}
 
 
@@ -292,9 +263,6 @@ def like(req: SwipeRequest, user_id: str = Depends(require_auth)):
         """,
         {"user_id": user_id, "unitid": req.unitid},
     )
-    rec_cache.remove_unit(user_id, req.unitid)
-    invalidate_cache(user_id)  # Invalidate graph cache for this user
-    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -316,9 +284,6 @@ def dislike(req: SwipeRequest, user_id: str = Depends(require_auth)):
         """,
         {"user_id": user_id, "unitid": req.unitid},
     )
-    rec_cache.remove_unit(user_id, req.unitid)
-    invalidate_cache(user_id)  # Invalidate graph cache for this user
-    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -328,9 +293,6 @@ def unlike(req: SwipeRequest, user_id: str = Depends(require_auth)):
         "DELETE FROM DATA_LAKE.PUBLIC.USER_LIKES WHERE USER_ID = %(user)s AND UNITID = %(u)s",
         {"user": user_id, "u": req.unitid},
     )
-    rec_cache.remove_unit(user_id, req.unitid)
-    invalidate_cache(user_id)  # Invalidate graph cache for this user
-    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -340,9 +302,6 @@ def undislike(req: SwipeRequest, user_id: str = Depends(require_auth)):
         "DELETE FROM DATA_LAKE.PUBLIC.USER_DISLIKES WHERE USER_ID = %(user)s AND UNITID = %(u)s",
         {"user": user_id, "u": req.unitid},
     )
-    rec_cache.remove_unit(user_id, req.unitid)
-    invalidate_cache(user_id)  # Invalidate graph cache for this user
-    _ensure_min_cache_async(user_id)
     return {"status": "ok"}
 
 
@@ -535,48 +494,6 @@ def _kumo_available() -> bool:
         return False
 
 
-# Cache helper functions now use the centralized cache manager
-def _cache_size(user_id: str) -> int:
-    return rec_cache.size(user_id)
-
-
-async def _ensure_min_cache_async(user_id: str) -> None:
-    async def _bg_fill():
-        # Use async lock to prevent duplicate fills
-        lock = await rec_cache.get_inflight_lock(user_id)
-        if lock.locked():
-            return  # Another task is already filling
-            
-        async with lock:
-            try:
-                # Fetch seen set using optimized query
-                interactions = await anyio.to_thread.run_sync(
-                    lambda: BatchedQueries.fetch_user_interactions(user_id)
-                )
-                seen_unitids = interactions["likes"] | interactions["dislikes"]
-                
-                # Determine how many to fetch to reach MIN
-                need = max(0, _REC_CACHE_MIN - _cache_size(user_id))
-                if need <= 0:
-                    return
-                    
-                recs = await anyio.to_thread.run_sync(
-                    lambda: recommend_top_k(
-                        user_id=user_id, 
-                        top_k=min(20, need), 
-                        horizon_days=180, 
-                        force_refresh=False  # Use cached graph
-                    )
-                )
-                
-                # Filter out seen units
-                recs = [rec for rec in recs if int(rec.get("unitid")) not in seen_unitids]
-                rec_cache.push(user_id, recs)
-                
-            except Exception as e:
-                logger.error(f"Failed to fill cache for user {user_id}: {e}")
-                
-    asyncio.create_task(_bg_fill())
 
 
 @app.get("/universities/recommendations")
@@ -594,80 +511,49 @@ async def universities_recommendations(user_id: str, top_k: int = 10):
         )
         seen_unitids = interactions["likes"] | interactions["dislikes"]
 
-        # Strategy:
-        # 1) If cache has items, pop an unseen one and serve it immediately; top-up 1 in background.
-        # 2) If cache empty or all seen, synchronously compute 2 RFM recs, serve first, cache the rest.
-        served: Optional[Tuple[int, Optional[float]]] = None
-        while True:
-            cand = rec_cache.pop(user_id)
-            if cand is None:
-                break
-            if int(cand[0]) not in seen_unitids:
-                served = cand
-                break
+        # Generate recommendations directly without caching
+        recs = await anyio.to_thread.run_sync(
+            lambda: recommend_top_k(
+                user_id=user_id, 
+                top_k=top_k, 
+                horizon_days=180
+            )
+        )
         
-        # Print cache contents for debugging
-        print(f"Cache contents for user {user_id}: {list(rec_cache._cache.get(user_id, []))}")
+        # Filter out seen units
+        recs = [rec for rec in recs if int(rec.get("unitid")) not in seen_unitids]
+        if not recs:
+            # Fallback if RFM empty
+            rand = await university_random()
+            return {"items": [rand] if isinstance(rand, dict) else []}
+
+        # Serve the first recommendation
+        first_rec = recs[0]
+        unitid = int(first_rec.get("unitid"))
+        score = float(first_rec.get("score", 0.0))
 
         from .db import get_connection
         import snowflake.connector
         cols = ", ".join(UNIVERSITY_COLUMNS)
 
-        async def _serve_unitid(uid: int, score: Optional[float]):
-            def _fetch_one(uid_local: int):
-                with get_connection() as conn:
-                    with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
-                        cur.execute(
-                            f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID = %s",
-                            (uid_local,),
-                        )
-                        return cur.fetchone()
-            row = await anyio.to_thread.run_sync(lambda: _fetch_one(uid))
-            if not row:
-                rand = await university_random()
-                return {"items": [rand] if isinstance(rand, dict) else []}
-            u = _row_to_university(row)
-            u["score"] = score
-            # Skip images here for speed; frontend fetches via /images/by-unitid if needed
-            return {"items": [u]}
-
-        if served is not None:
-            async def _topup():
-                try:
-                    r = await anyio.to_thread.run_sync(
-                        lambda: recommend_top_k(
-                            user_id=user_id, 
-                            top_k=1, 
-                            horizon_days=180, 
-                            force_refresh=False  # Use cached graph
-                        )
+        def _fetch_one(uid_local: int):
+            with get_connection() as conn:
+                with conn.cursor(snowflake.connector.DictCursor) as cur:  # type: ignore
+                    cur.execute(
+                        f"SELECT {cols} FROM DATA_LAKE.PUBLIC.UNIVERSITY_DATA WHERE UNITID = %s",
+                        (uid_local,),
                     )
-                    filtered = [rec for rec in r if int(rec.get("unitid")) not in seen_unitids]
-                    rec_cache.push(user_id, filtered)
-                except Exception as e:
-                    logger.warning(f"Failed to top up cache for user {user_id}: {e}")
-            asyncio.create_task(_topup())
-            # Ensure target minimum cache size in background
-            _ensure_min_cache_async(user_id)
-            return await _serve_unitid(served[0], served[1])
-
-        # Cache miss: compute 2 recs synchronously, serve first, cache the rest
-        recs = await anyio.to_thread.run_sync(
-            lambda: recommend_top_k(
-                user_id=user_id, 
-                top_k=max(2, _REC_CACHE_MIN), 
-                horizon_days=180, 
-                force_refresh=False  # Use cached graph
-            )
-        )
-        recs = [rec for rec in recs if int(rec.get("unitid")) not in seen_unitids]
-        if not recs:
-            # Absolute fallback if RFM empty
+                    return cur.fetchone()
+        
+        row = await anyio.to_thread.run_sync(lambda: _fetch_one(unitid))
+        if not row:
             rand = await university_random()
             return {"items": [rand] if isinstance(rand, dict) else []}
-        first, rest = recs[0], recs[1:]
-        rec_cache.push(user_id, rest)
-        return await _serve_unitid(int(first.get("unitid")), float(first.get("score", 0.0)))
+        
+        u = _row_to_university(row)
+        u["score"] = score
+        return {"items": [u]}
+        
     except Exception as e:
         logger = logging.getLogger("uvicorn")
         logger.info("RFM recommendations error for user %s: %s; fallback to random", user_id, e)
@@ -743,98 +629,5 @@ async def university_by_unitid(unitid: int):
     return uni
 
 
-@app.get("/admin/cache/stats")
-def cache_stats(user_id: str = Depends(require_auth)):
-    """Get cache statistics for monitoring."""
-    from .cache_manager import graph_cache, rec_cache
-    
-    return {
-        "graph_cache": {
-            "entries": len(graph_cache._cache),
-            "ttl_seconds": graph_cache.ttl_seconds
-        },
-        "recommendation_cache": {
-            "user_cache_size": rec_cache.size(user_id),
-            "total_users": len(rec_cache._cache),
-            "min_size": rec_cache.min_size,
-            "max_size": rec_cache.max_size
-        }
-    }
-
-
-@app.post("/admin/cache/invalidate")
-def invalidate_caches(user_id: str = Depends(require_auth)):
-    """Manually invalidate all caches."""
-    from .cache_manager import graph_cache, rec_cache
-    
-    # Clear graph cache
-    graph_cache.invalidate()
-    
-    # Clear user's recommendation cache
-    rec_cache.clear_user(user_id)
-    
-    # Invalidate the model cache
-    invalidate_cache()
-    
-    logger.info(f"All caches invalidated by user {user_id}")
-    return {"status": "caches_invalidated"}
-
-
-@app.post("/admin/cache/warmup")
-async def warmup_cache(user_id: str = Depends(require_auth)):
-    """Warm up the cache for the current user."""
-    try:
-        # Build the graph if not cached
-        from .rfm_reco import _build_graph
-        await anyio.to_thread.run_sync(lambda: _build_graph(force_refresh=False))
-        
-        # Pre-fetch recommendations
-        recs = await anyio.to_thread.run_sync(
-            lambda: recommend_top_k(
-                user_id=user_id,
-                top_k=_REC_CACHE_MIN * 2,
-                horizon_days=180,
-                force_refresh=False
-            )
-        )
-        
-        rec_cache.push(user_id, recs)
-        
-        return {
-            "status": "cache_warmed",
-            "recommendations_cached": len(recs)
-        }
-    except Exception as e:
-        logger.error(f"Failed to warm cache for user {user_id}: {e}")
-        return {"status": "error", "message": str(e)}
-
-
-@app.get("/admin/cache/stats")
-async def cache_stats(authorization: Optional[str] = Header(default=None)):
-    """Get cache statistics. Requires admin auth."""
-    if not authorization or "admin" not in authorization.lower():
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    from .cache_manager import graph_cache
-    stats = {
-        "graph_cache_entries": len(graph_cache._cache),
-        "graph_cache_ttl": graph_cache.ttl_seconds,
-        "rec_cache_users": len(rec_cache._cache),
-        "rec_cache_config": {
-            "max_size": rec_cache.max_size,
-            "min_size": rec_cache.min_size
-        }
-    }
-    
-    # Add per-user stats
-    user_stats = []
-    for user_id, queue in rec_cache._cache.items():
-        user_stats.append({
-            "user_id": user_id,
-            "cache_size": len(queue)
-        })
-    stats["user_cache_details"] = user_stats
-    
-    return stats
 
 

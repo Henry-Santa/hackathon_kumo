@@ -6,7 +6,6 @@ import snowflake.connector
 import kumoai.experimental.rfm as rfm
 from typing import List, Dict, Tuple, Optional
 from .config import settings
-from .cache_manager import graph_cache
 import logging
 import time
 
@@ -139,14 +138,8 @@ def _ensure_init():
     _INIT = True
 
 
-def _build_graph(force_refresh: bool = False, cache_key: str = "default") -> Tuple[any, any]:
-    # Try to get from cache first
-    if not force_refresh:
-        graph, model = graph_cache.get(cache_key)
-        if graph is not None and model is not None:
-            return graph, model
-    
-    logger.info(f"Building graph for cache_key={cache_key}, force_refresh={force_refresh}")
+def _build_graph() -> Tuple[any, any]:
+    logger.info("Building graph")
     start_time = time.time()
     
     _ensure_init()
@@ -224,26 +217,17 @@ def _build_graph(force_refresh: bool = False, cache_key: str = "default") -> Tup
 
     model = rfm.KumoRFM(graph)
     
-    # Cache the graph and model
-    graph_cache.set(cache_key, graph, model)
-    
-    logger.info(f"Graph built and cached in {time.time() - start_time:.2f}s")
+    logger.info(f"Graph built in {time.time() - start_time:.2f}s")
     return graph, model
 
 
 def invalidate_cache(user_id: Optional[str] = None) -> None:
-    """Invalidate the graph cache, optionally for a specific user."""
-    if user_id:
-        graph_cache.invalidate_user(user_id)
-    else:
-        graph_cache.invalidate()
-    logger.info(f"Cache invalidated for user={user_id or 'all'}")
+    """Legacy function - no longer needed without caching."""
+    logger.info(f"Cache invalidation called for user={user_id or 'all'} - no-op without caching")
 
 
 def recommend_top_k(user_id: str, top_k: int = 10, horizon_days: int = 180, force_refresh: bool = False) -> List[Dict]:
-    # Use smart caching instead of always rebuilding
-    cache_key = "default"  # Could be user-specific if needed
-    _, model = _build_graph(force_refresh=force_refresh, cache_key=cache_key)
+    _, model = _build_graph()
     # Foundation model limit is 20
     k = max(1, min(int(top_k), 20))
     uid = (user_id or "").replace("'", "''")
