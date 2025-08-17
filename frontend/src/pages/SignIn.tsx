@@ -41,13 +41,31 @@ export default function SignIn() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: 520 }}>
-      <div className="card">
-        <h1>Welcome back</h1>
-        <div className="muted">Sign in to continue</div>
-        <form onSubmit={handleSubmit} className="grid" style={{ gap: 12, marginTop: 12 }}>
+    <div className="container" style={{ maxWidth: 480, display: 'flex', alignItems: 'center', minHeight: 'calc(100vh - 80px)' }}>
+      <div className="card" style={{ width: '100%', textAlign: 'center' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ 
+            width: 80, 
+            height: 80, 
+            background: 'linear-gradient(135deg, var(--brand), var(--brand-2))', 
+            borderRadius: '50%', 
+            margin: '0 auto 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 32,
+            color: 'white',
+            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)'
+          }}>
+            🎓
+          </div>
+          <h1 style={{ marginBottom: 8 }}>Welcome back!</h1>
+          <div className="muted" style={{ fontSize: 16 }}>Sign in to continue your college journey</div>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="grid" style={{ gap: 20, marginBottom: 24 }}>
           <div className="field">
-            <label>Email</label>
+            <label>📧 Email Address</label>
             <input
               className="input"
               type="email"
@@ -58,7 +76,7 @@ export default function SignIn() {
             />
           </div>
           <div className="field">
-            <label>Password</label>
+            <label>🔒 Password</label>
             <input
               className="input"
               type="password"
@@ -69,11 +87,41 @@ export default function SignIn() {
             />
           </div>
           <div>
-            <button className="btn primary" disabled={loading} type="submit">{loading ? 'Signing in…' : 'Sign in'}</button>
+            <button 
+              className="btn primary" 
+              disabled={loading} 
+              type="submit"
+              style={{ width: '100%', padding: '16px 24px', fontSize: 16 }}
+            >
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="loading-spinner" />
+                  Signing in...
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🚀 Sign In
+                </span>
+              )}
+            </button>
           </div>
         </form>
-        {error && <p className="muted" style={{ color: 'var(--danger)', marginTop: 8 }}>{error}</p>}
-        <p className="muted" style={{ marginTop: 12 }}>No account? <Link to="/signup">Create one</Link></p>
+        
+        {error && (
+          <div className="error-message">
+            <span>⚠️</span>
+            {error}
+          </div>
+        )}
+        
+        <div style={{ paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Don't have an account?{' '}
+            <Link to="/signup" style={{ fontWeight: 600, color: 'var(--brand)' }}>
+              Create one now
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

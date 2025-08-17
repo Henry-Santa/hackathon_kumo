@@ -18,11 +18,11 @@ export default function SignUp() {
   const [step, setStep] = useState(0);
 
   const steps = useMemo(() => [
-    { key: 'account', title: 'Create your account', subtitle: 'Secure your login to personalize recommendations.' },
-    { key: 'about', title: 'About you', subtitle: 'Optional demographics help us tailor insights.' },
-    { key: 'sat_erw', title: 'SAT — Evidence-Based Reading & Writing', subtitle: 'Optional. Enter if you have a score.' },
-    { key: 'sat_math', title: 'SAT — Math', subtitle: 'Optional. Enter if you have a score.' },
-    { key: 'act', title: 'ACT — Composite', subtitle: 'Optional. Enter if you have a score.' },
+    { key: 'account', title: 'Create your account', subtitle: 'Secure your login to personalize recommendations.', icon: '🔐' },
+    { key: 'about', title: 'About you', subtitle: 'Optional demographics help us tailor insights.', icon: '👤' },
+    { key: 'sat_erw', title: 'SAT — Evidence-Based Reading & Writing', subtitle: 'Optional. Enter if you have a score.', icon: '📚' },
+    { key: 'sat_math', title: 'SAT — Math', subtitle: 'Optional. Enter if you have a score.', icon: '🧮' },
+    { key: 'act', title: 'ACT — Composite', subtitle: 'Optional. Enter if you have a score.', icon: '📝' },
   ], []);
 
   useEffect(() => {
@@ -113,24 +113,39 @@ export default function SignUp() {
   const progress = ((step + 1) / steps.length) * 100;
 
   return (
-    <div className="container" style={{ maxWidth: 720 }}>
-      <div className="card" style={{ padding: 20, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div>
-            <h1 style={{ margin: 0 }}>Sign up</h1>
-            <div className="muted">{steps[step].subtitle}</div>
+    <div className="container" style={{ maxWidth: 720, display: 'flex', alignItems: 'center', minHeight: 'calc(100vh - 80px)' }}>
+      <div className="card" style={{ width: '100%' }}>
+        {/* Header with progress */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ 
+            width: 80, 
+            height: 80, 
+            background: 'linear-gradient(135deg, var(--brand), var(--brand-2))', 
+            borderRadius: '50%', 
+            margin: '0 auto 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 32,
+            color: 'white',
+            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)'
+          }}>
+            {steps[step].icon}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="muted" style={{ fontSize: 12 }}>Step {step + 1} of {steps.length}</div>
-            <div className="progress" style={{ width: 180, marginTop: 6 }}>
+          <h1 style={{ marginBottom: 8 }}>{steps[step].title}</h1>
+          <div className="muted" style={{ fontSize: 16, marginBottom: 24 }}>{steps[step].subtitle}</div>
+          
+          {/* Progress indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+            <div className="muted" style={{ fontSize: 14 }}>Step {step + 1} of {steps.length}</div>
+            <div className="progress" style={{ width: 200, height: 8 }}>
               <div className="bar" style={{ width: `${progress}%` }} />
             </div>
           </div>
         </div>
 
-        <div style={{ height: 12 }} />
-
-        <div style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Step content */}
+        <div style={{ position: 'relative', overflow: 'hidden', marginBottom: 32 }}>
           <div
             style={{
               display: 'grid',
@@ -141,10 +156,10 @@ export default function SignUp() {
           >
             {/* Step 1: Account */}
             <div style={{ paddingRight: 8 }}>
-              <div className="grid" style={{ gap: 12 }}>
-                <div className="grid cols-2">
+              <div className="grid" style={{ gap: 20 }}>
+                <div className="form-row">
                   <div className="field">
-                    <label>Email</label>
+                    <label>📧 Email Address</label>
                     <input
                       className="input"
                       name="email"
@@ -156,7 +171,7 @@ export default function SignUp() {
                     />
                   </div>
                   <div className="field">
-                    <label>Password</label>
+                    <label>🔒 Password</label>
                     <input
                       className="input"
                       name="password"
@@ -173,9 +188,9 @@ export default function SignUp() {
 
             {/* Step 2: About you (optional) */}
             <div style={{ paddingRight: 8 }}>
-              <div className="grid cols-3" style={{ gap: 12 }}>
+              <div className="grid cols-3" style={{ gap: 20 }}>
                 <div className="field">
-                  <label>Gender (optional)</label>
+                  <label>👤 Gender (optional)</label>
                   <select className="select" name="gender" value={form.gender} onChange={handleChange}>
                     <option value="">Select…</option>
                     <option>Male</option>
@@ -185,7 +200,7 @@ export default function SignUp() {
                   </select>
                 </div>
                 <div className="field">
-                  <label>State/Territory (optional)</label>
+                  <label>🗺️ State/Territory (optional)</label>
                   <select className="select" name="state" value={form.state} onChange={handleChange}>
                     <option value="">Select…</option>
                     <option>Alabama</option>
@@ -247,7 +262,7 @@ export default function SignUp() {
                   </select>
                 </div>
                 <div className="field">
-                  <label>Race/Ethnicity (optional)</label>
+                  <label>🌍 Race/Ethnicity (optional)</label>
                   <select className="select" name="race" value={form.race} onChange={handleChange}>
                     <option value="">Select…</option>
                     <option>American Indian or Alaska Native</option>
@@ -268,9 +283,9 @@ export default function SignUp() {
 
             {/* Step 3: SAT ERW (optional) */}
             <div style={{ paddingRight: 8 }}>
-              <div className="grid" style={{ gap: 12 }}>
+              <div className="grid" style={{ gap: 20 }}>
                 <div className="field">
-                  <label>SAT ERW</label>
+                  <label>📚 SAT Evidence-Based Reading & Writing</label>
                   <input
                     className="input"
                     name="satErw"
@@ -279,15 +294,18 @@ export default function SignUp() {
                     value={form.satErw}
                     onChange={handleChange}
                   />
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    Score range: 200-800
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Step 4: SAT Math (optional) */}
             <div style={{ paddingRight: 8 }}>
-              <div className="grid" style={{ gap: 12 }}>
+              <div className="grid" style={{ gap: 20 }}>
                 <div className="field">
-                  <label>SAT Math</label>
+                  <label>🧮 SAT Math</label>
                   <input
                     className="input"
                     name="satMath"
@@ -296,15 +314,18 @@ export default function SignUp() {
                     value={form.satMath}
                     onChange={handleChange}
                   />
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    Score range: 200-800
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Step 5: ACT (optional) */}
             <div style={{ paddingRight: 8 }}>
-              <div className="grid" style={{ gap: 12 }}>
+              <div className="grid" style={{ gap: 20 }}>
                 <div className="field">
-                  <label>ACT (composite)</label>
+                  <label>📝 ACT Composite</label>
                   <input
                     className="input"
                     name="act"
@@ -313,28 +334,68 @@ export default function SignUp() {
                     value={form.act}
                     onChange={handleChange}
                   />
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    Score range: 1-36
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn" onClick={back} disabled={step === 0 || loading}>Back</button>
+        {/* Navigation buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button className="btn" onClick={back} disabled={step === 0 || loading}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                ← Back
+              </span>
+            </button>
             {step > 0 && step < steps.length && (
-              <button className="btn" onClick={skip} disabled={loading}>Skip</button>
+              <button className="btn" onClick={skip} disabled={loading}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ⏭️ Skip
+                </span>
+              </button>
             )}
           </div>
           <div>
             <button className="btn primary" onClick={next} disabled={loading}>
-              {step === steps.length - 1 ? (loading ? 'Creating…' : 'Create account') : 'Next'}
+              {step === steps.length - 1 ? (
+                loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="loading-spinner" />
+                    Creating...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    ✨ Create Account
+                  </span>
+                )
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Next →
+                </span>
+              )}
             </button>
           </div>
         </div>
 
-        {error && <p className="muted" style={{ color: 'var(--danger)', marginTop: 8 }}>{error}</p>}
-        <p className="muted" style={{ marginTop: 12 }}>Have an account? <Link to="/">Sign in</Link></p>
+        {error && (
+          <div className="error-message">
+            <span>⚠️</span>
+            {error}
+          </div>
+        )}
+        
+        <div style={{ paddingTop: 24, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Already have an account?{' '}
+            <Link to="/" style={{ fontWeight: 600, color: 'var(--brand)' }}>
+              Sign in here
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

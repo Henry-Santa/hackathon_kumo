@@ -131,8 +131,23 @@ export default function UniversityProfile() {
     };
   }, [uni]);
 
-  if (error) return <div className="container"><p className="muted" style={{ color: 'var(--danger)' }}>{error}</p></div>;
-  if (!uni) return <div className="container"><p className="muted">Loading university…</p></div>;
+  if (error) return (
+    <div className="container">
+      <div className="error-message">
+        <span>⚠️</span>
+        {error}
+      </div>
+    </div>
+  );
+  
+  if (!uni) return (
+    <div className="container">
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div className="loading-spinner" style={{ width: 40, height: 40, margin: '0 auto 20px' }} />
+        <div className="muted">Loading university recommendations...</div>
+      </div>
+    </div>
+  );
 
   // Build slides: each slide shows an image + a focused info block. Last slide is image + like/dislike.
   const slides: Array<JSX.Element> = [];
@@ -142,16 +157,72 @@ export default function UniversityProfile() {
   // Slide 1: Hero + quick facts
   slides.push(
     <TwoCol img={getImg(0)} alt={uni.institution_name}>
-      <h3>Quick facts</h3>
-      <ul>
-        <li><strong>Acceptance rate:</strong> {naPct(uni.percent_admitted_total)}</li>
-        <li>Control: {na(uni.control_of_institution)}</li>
-        <li>Level: {na(uni.level_of_institution)}</li>
-        <li>Locale: {na(uni.degree_of_urbanization_urban_centric_locale)}</li>
-        <li>Student/Faculty: {naNum(uni.student_to_faculty_ratio)}</li>
-      </ul>
+      <h3 style={{ color: 'var(--brand)', marginBottom: 20 }}>🏛️ Quick Facts</h3>
+      <div style={{ 
+        background: 'rgba(99, 102, 241, 0.05)', 
+        border: '1px solid rgba(99, 102, 241, 0.2)', 
+        borderRadius: 'var(--radius-sm)', 
+        padding: '20px',
+        marginBottom: 20
+      }}>
+        <ul style={{ margin: 0, padding: 0 }}>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(99, 102, 241, 0.1)'
+          }}>
+            <strong>Acceptance rate:</strong> 
+            <span style={{ color: 'var(--brand)', fontWeight: 600 }}>{naPct(uni.percent_admitted_total)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(99, 102, 241, 0.1)'
+          }}>
+            <strong>Control:</strong> 
+            <span>{na(uni.control_of_institution)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(99, 102, 241, 0.1)'
+          }}>
+            <strong>Level:</strong> 
+            <span>{na(uni.level_of_institution)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(99, 102, 241, 0.1)'
+          }}>
+            <strong>Locale:</strong> 
+            <span>{na(uni.degree_of_urbanization_urban_centric_locale)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0'
+          }}>
+            <strong>Student/Faculty:</strong> 
+            <span>{naNum(uni.student_to_faculty_ratio)}</span>
+          </li>
+        </ul>
+      </div>
       <div style={{ marginTop: 8 }}>
-        Website: {uni.institutions_internet_website_address ? <a href={uni.institutions_internet_website_address} target="_blank" rel="noreferrer">link</a> : 'N/A'}
+        <strong>Website:</strong> {uni.institutions_internet_website_address ? (
+          <a href={uni.institutions_internet_website_address} target="_blank" rel="noreferrer" style={{ marginLeft: 8 }}>
+            🌐 Visit Website
+          </a>
+        ) : 'N/A'}
       </div>
     </TwoCol>
   );
@@ -159,14 +230,66 @@ export default function UniversityProfile() {
   // Slide 2: Costs + map
   slides.push(
     <TwoCol img={getImg(1)} alt={uni.institution_name}>
-      <h3>Costs</h3>
-      <ul>
-        <li>Tuition/Fees: {money(uni.tuition_and_fees_2023_24)}</li>
-        <li>In-state total: {money(uni.total_price_for_in_state_students_living_on_campus_2023_24)}</li>
-        <li>Out-of-state total: {money(uni.total_price_for_out_of_state_students_living_on_campus_2023_24)}</li>
-        <li>Avg grant aid: {money(uni.average_amount_of_federal_state_local_or_institutional_grant_aid_awarded)}</li>
-        <li>Avg net price (22-23): {money(uni.average_net_price_students_awarded_grant_or_scholarship_aid_2022_23)}</li>
-      </ul>
+      <h3 style={{ color: 'var(--brand-2)', marginBottom: 20 }}>💰 Costs & Financial Aid</h3>
+      <div style={{ 
+        background: 'rgba(16, 185, 129, 0.05)', 
+        border: '1px solid rgba(16, 185, 129, 0.2)', 
+        borderRadius: 'var(--radius-sm)', 
+        padding: '20px',
+        marginBottom: 20
+      }}>
+        <ul style={{ margin: 0, padding: 0 }}>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(16, 185, 129, 0.1)'
+          }}>
+            <strong>Tuition/Fees:</strong> 
+            <span style={{ color: 'var(--brand-2)', fontWeight: 600 }}>{money(uni.tuition_and_fees_2023_24)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(16, 185, 129, 0.1)'
+          }}>
+            <strong>In-state total:</strong> 
+            <span>{money(uni.total_price_for_in_state_students_living_on_campus_2023_24)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(16, 185, 129, 0.1)'
+          }}>
+            <strong>Out-of-state total:</strong> 
+            <span>{money(uni.total_price_for_out_of_state_students_living_on_campus_2023_24)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0',
+            borderBottom: '1px solid rgba(16, 185, 129, 0.1)'
+          }}>
+            <strong>Avg grant aid:</strong> 
+            <span>{money(uni.average_amount_of_federal_state_local_or_institutional_grant_aid_awarded)}</span>
+          </li>
+          <li style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '12px 0'
+          }}>
+            <strong>Avg net price:</strong> 
+            <span>{money(uni.average_net_price_students_awarded_grant_or_scholarship_aid_2022_23)}</span>
+          </li>
+        </ul>
+      </div>
       <div style={{ marginTop: 8 }}>
         <MapEmbed name={uni.institution_name} city={uni.city_location_of_institution} state={uni.state_abbreviation} />
       </div>
@@ -176,49 +299,114 @@ export default function UniversityProfile() {
   // Slide 3: Rates
   slides.push(
     <TwoCol img={getImg(2)} alt={uni.institution_name}>
-      <h3>Rates</h3>
-      {bars.map((b) => (
-        <Bar key={b.label} label={b.label} value={b.value} max={b.max} />
-      ))}
+      <h3 style={{ color: 'var(--brand)', marginBottom: 20 }}>📊 Key Statistics</h3>
+      <div style={{ 
+        background: 'rgba(99, 102, 241, 0.05)', 
+        border: '1px solid rgba(99, 102, 241, 0.2)', 
+        borderRadius: 'var(--radius-sm)', 
+        padding: '20px'
+      }}>
+        {bars.map((b) => (
+          <Bar key={b.label} label={b.label} value={b.value} max={b.max} />
+        ))}
+      </div>
     </TwoCol>
   );
 
   // Slide 4: Tests
   slides.push(
     <TwoCol img={getImg(3)} alt={uni.institution_name}>
-      <h3>SAT bands</h3>
-      <Band label="ERW" values={satBands?.erw || []} user={me?.sat_erw} />
-      <Band label="Math" values={satBands?.math || []} user={me?.sat_math} />
-      <h3 style={{ marginTop: 16 }}>ACT composite</h3>
-      <Band label="ACT" values={[uni.act_composite_25th_percentile_score, uni.act_composite_50th_percentile_score, uni.act_composite_75th_percentile_score]} user={me?.act_composite} max={36} />
+      <h3 style={{ color: 'var(--brand-2)', marginBottom: 20 }}>📝 Test Score Ranges</h3>
+      <div style={{ 
+        background: 'rgba(16, 185, 129, 0.05)', 
+        border: '1px solid rgba(16, 185, 129, 0.2)', 
+        borderRadius: 'var(--radius-sm)', 
+        padding: '20px',
+        marginBottom: 20
+      }}>
+        <Band label="SAT ERW" values={satBands?.erw || []} user={me?.sat_erw} />
+        <Band label="SAT Math" values={satBands?.math || []} user={me?.sat_math} />
+      </div>
+      
+      <div style={{ 
+        background: 'rgba(16, 185, 129, 0.05)', 
+        border: '1px solid rgba(16, 185, 129, 0.2)', 
+        borderRadius: 'var(--radius-sm)', 
+        padding: '20px'
+      }}>
+        <h4 style={{ margin: '0 0 16px', color: 'var(--brand-2)' }}>ACT Composite</h4>
+        <Band label="ACT" values={[uni.act_composite_25th_percentile_score, uni.act_composite_50th_percentile_score, uni.act_composite_75th_percentile_score]} user={me?.act_composite} max={36} />
+      </div>
     </TwoCol>
   );
 
   return (
-    <div className="container" style={{ maxWidth: 1000 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-        <h1 style={{ margin: 0 }}>{uni.institution_name}</h1>
-        <span className="muted">{na(uni.city_location_of_institution)}, {na(uni.state_abbreviation)}</span>
-      </div>
-      <div style={{ display: 'flex', gap: 16, margin: '8px 0 16px' }}>
-        <a href={uni.institutions_internet_website_address || '#'} target="_blank" rel="noreferrer">Website</a>
-        {me && (
-          <span className="muted">
-            Your scores: {me.act_composite ? `ACT ${me.act_composite}` : 'ACT N/A'} | {userSatTotal ? `SAT ${userSatTotal}` : 'SAT N/A'}
+    <div className="container" style={{ maxWidth: 1200 }}>
+      {/* University Header */}
+      <div className="university-header">
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 16 }}>
+          <h1 style={{ margin: 0 }}>{uni.institution_name}</h1>
+          <span className="muted" style={{ fontSize: 18 }}>
+            📍 {na(uni.city_location_of_institution)}, {na(uni.state_abbreviation)}
           </span>
-        )}
-      </div>
-
-      <Slides index={slideIndex} onIndex={setSlideIndex} slides={slides} footer={(atEnd) => (
-        <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
-          {!atEnd ? <span style={{ color: '#666' }}>Flip through slides, then choose Like/Dislike</span> : (
-            <>
-              <SwipeButton kind="dislike" unitid={uni.unitid} onDone={() => me?.user_id && loadRec(me.user_id)} />
-              <SwipeButton kind="like" unitid={uni.unitid} onDone={() => me?.user_id && loadRec(me.user_id)} />
-            </>
+        </div>
+        
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+          {uni.institutions_internet_website_address && (
+            <a 
+              href={uni.institutions_internet_website_address} 
+              target="_blank" 
+              rel="noreferrer"
+              className="btn"
+              style={{ textDecoration: 'none' }}
+            >
+              🌐 Visit Website
+            </a>
+          )}
+          
+          {me && (
+            <div className="muted" style={{ fontSize: 14 }}>
+              <strong>Your scores:</strong> {me.act_composite ? `ACT ${me.act_composite}` : 'ACT N/A'} | {userSatTotal ? `SAT ${userSatTotal}` : 'SAT N/A'}
+            </div>
           )}
         </div>
-      )} />
+      </div>
+
+      {/* Slides Navigation */}
+      <Slides 
+        index={slideIndex} 
+        onIndex={setSlideIndex} 
+        slides={slides} 
+        footer={(atEnd) => (
+          <div style={{ 
+            display: 'flex', 
+            gap: 16, 
+            marginTop: 32, 
+            justifyContent: 'center',
+            flexWrap: 'wrap'
+          }}>
+            {!atEnd ? (
+              <div style={{ 
+                textAlign: 'center', 
+                color: 'var(--muted)', 
+                padding: '20px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>📖</div>
+                <div>Flip through slides to learn more about this college</div>
+                <div style={{ fontSize: 12, marginTop: 8 }}>Use arrow keys or navigation buttons</div>
+              </div>
+            ) : (
+              <>
+                <SwipeButton kind="dislike" unitid={uni.unitid} onDone={() => me?.user_id && loadRec(me.user_id)} />
+                <SwipeButton kind="like" unitid={uni.unitid} onDone={() => me?.user_id && loadRec(me.user_id)} />
+              </>
+            )}
+          </div>
+        )} 
+      />
     </div>
   );
 }
@@ -226,13 +414,25 @@ export default function UniversityProfile() {
 function Bar({ label, value, max = 100 }: { label: string; value?: number; max?: number }) {
   const pct = value != null ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-        <span>{label}</span>
-        <span>{value != null ? `${value}%` : 'N/A'}</span>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
+        <span style={{ fontWeight: 500 }}>{label}</span>
+        <span style={{ color: 'var(--brand)', fontWeight: 600 }}>{value != null ? `${value}%` : 'N/A'}</span>
       </div>
-      <div style={{ height: 8, background: '#eee', borderRadius: 4 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: '#4f46e5', borderRadius: 4 }} />
+      <div style={{ 
+        height: 10, 
+        background: 'var(--panel)', 
+        borderRadius: 'var(--radius-sm)', 
+        border: '1px solid var(--border)',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          width: `${pct}%`, 
+          height: '100%', 
+          background: 'linear-gradient(90deg, var(--brand), var(--brand-2))', 
+          borderRadius: 'var(--radius-sm)',
+          transition: 'width 0.3s ease'
+        }} />
       </div>
     </div>
   );
@@ -243,34 +443,105 @@ function Band({ label, values, user, max = 800 }: { label: string; values: Array
   const lo = p25 ?? undefined;
   const hi = p75 ?? undefined;
   const u = user;
-  const pct = (v?: number) => (v != null ? Math.max(0, Math.min(100, (v / (max || 1)) * 100)) : undefined);
-  const pctLo = pct(lo);
-  const pctHi = pct(hi);
-  const pctUser = pct(u);
+  const getPct = (v?: number) =>
+    v != null ? Math.max(0, Math.min(100, (v / (max || 1)) * 100)) : undefined;
+  const pctLo = getPct(lo);
+  const pctHi = getPct(hi);
+  const pctUser = getPct(u);
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-        <span>{label}</span>
-        <span>{p25 != null && p75 != null ? `${p25}–${p75}` : 'N/A'}</span>
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 12 }}>
+        <span style={{ fontWeight: 500 }}>{label}</span>
+        <span style={{ color: 'var(--brand-2)', fontWeight: 600 }}>
+          {p25 != null && p75 != null ? `${p25}–${p75}` : 'N/A'}
+        </span>
       </div>
-      <div style={{ position: 'relative', height: 10, background: '#eee', borderRadius: 5 }}>
+      <div style={{ 
+        position: 'relative', 
+        height: 12, 
+        background: 'var(--panel)', 
+        borderRadius: 'var(--radius-sm)',
+        border: '1px solid var(--border)',
+        overflow: 'hidden'
+      }}>
         {pctLo != null && pctHi != null && (
-          <div style={{ position: 'absolute', left: `${pctLo}%`, width: `${Math.max(0, pctHi - pctLo)}%`, top: 0, bottom: 0, background: '#10b981', borderRadius: 5 }} />
+          <div style={{ 
+            position: 'absolute', 
+            left: `${pctLo}%`, 
+            width: `${Math.max(0, pctHi - pctLo)}%`, 
+            top: 0, 
+            bottom: 0, 
+            background: 'linear-gradient(90deg, var(--brand-2), var(--ok))', 
+            borderRadius: 'var(--radius-sm)'
+          }} />
         )}
         {/* p25 marker */}
-        {pctLo != null && <div title={`25th: ${p25}`} style={{ position: 'absolute', left: `${pctLo}%`, top: -4, width: 2, height: 18, background: '#065f46' }} />}
+        {pctLo != null && (
+          <div 
+            title={`25th percentile: ${p25}`} 
+            style={{ 
+              position: 'absolute', 
+              left: `${pctLo}%`, 
+              top: -6, 
+              width: 3, 
+              height: 24, 
+              background: 'var(--brand-2)', 
+              borderRadius: '2px'
+            }} 
+          />
+        )}
         {/* p50 marker */}
         {p50 != null && (
-          <div title={`50th: ${p50}`} style={{ position: 'absolute', left: `${pct(p50)}%`, top: -2, width: 2, height: 14, background: '#047857' }} />
+          <div 
+            title={`50th percentile: ${p50}`} 
+            style={{ 
+              position: 'absolute', 
+              left: `${getPct(p50)}%`, 
+              top: -4, 
+              width: 3, 
+              height: 20, 
+              background: 'var(--ok)', 
+              borderRadius: '2px'
+            }} 
+          />
         )}
         {/* p75 marker */}
-        {pctHi != null && <div title={`75th: ${p75}`} style={{ position: 'absolute', left: `${pctHi}%`, top: -4, width: 2, height: 18, background: '#065f46' }} />}
+        {pctHi != null && (
+          <div 
+            title={`75th percentile: ${p75}`} 
+            style={{ 
+              position: 'absolute', 
+              left: `${pctHi}%`, 
+              top: -6, 
+              width: 3, 
+              height: 24, 
+              background: 'var(--brand-2)', 
+              borderRadius: '2px'
+            }} 
+          />
+        )}
         {/* user marker */}
         {pctUser != null && (
-          <div title={`You: ${user}`} style={{ position: 'absolute', left: `${pctUser}%`, top: -3, width: 2, height: 16, background: '#111827' }} />
+          <div 
+            title={`Your score: ${user}`} 
+            style={{ 
+              position: 'absolute', 
+              left: `${pctUser}%`, 
+              top: -5, 
+              width: 3, 
+              height: 22, 
+              background: 'var(--brand)', 
+              borderRadius: '2px',
+              boxShadow: '0 0 8px rgba(99, 102, 241, 0.6)'
+            }} 
+          />
         )}
       </div>
-      {p50 != null && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Median: {p50}</div>}
+      {p50 != null && (
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+          <strong>Median:</strong> {p50}
+        </div>
+      )}
     </div>
   );
 }
@@ -294,13 +565,25 @@ function SwipeButton({ kind, unitid, onDone }: { kind: 'like' | 'dislike'; uniti
     }
   };
   return (
-    <button onClick={onClick} disabled={loading} className={`btn ${kind === 'like' ? 'ok' : 'danger'}`}>
-      {kind === 'like' ? '👍 Like' : '👎 Dislike'}
+    <button 
+      onClick={onClick} 
+      disabled={loading} 
+      className={`btn ${kind === 'like' ? 'ok' : 'danger'}`}
+      style={{ padding: '16px 32px', fontSize: 16 }}
+    >
+      {loading ? (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="loading-spinner" />
+          {kind === 'like' ? 'Liking...' : 'Disliking...'}
+        </span>
+      ) : (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {kind === 'like' ? '👍 Like' : '👎 Dislike'}
+        </span>
+      )}
     </button>
   );
 }
-
-/* TwoCol is imported from ../components/TwoCol */
 
 function Slides({ slides, footer, index, onIndex }: { slides: Array<JSX.Element>; footer?: (atEnd: boolean) => JSX.Element; index: number; onIndex: (n: number) => void }) {
   const atEnd = index >= slides.length - 1;
@@ -330,46 +613,52 @@ function Slides({ slides, footer, index, onIndex }: { slides: Array<JSX.Element>
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {slides.map((_, i) => (
-            <div key={i} className={`dot ${i === index ? 'active' : ''}`} />
-          ))}
-        </div>
+      {/* Navigation Controls */}
+      <div style={{ 
+        marginBottom: 24, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        background: 'rgba(255, 255, 255, 0.03)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '16px 20px'
+      }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={prev} disabled={index === 0}>Back</button>
-          <button className="btn" onClick={next} disabled={atEnd}>Next</button>
-        </div>
-      </div>
-      <div>{slides[index]}</div>
-      {footer ? footer(atEnd) : null}
-    </div>
-  );
-}
-
-function Carousel({ images, alt }: { images: string[]; alt: string }) {
-  const [idx, setIdx] = useState(0);
-  const prev = () => setIdx((i) => (i - 1 + images.length) % images.length);
-  const next = () => setIdx((i) => (i + 1) % images.length);
-  if (!images.length) return null;
-  return (
-    <div>
-      <div style={{ position: 'relative' }}>
-        <img src={images[idx]} alt={alt} style={{ width: '100%', maxHeight: 360, objectFit: 'cover', borderRadius: 8 }} />
-        {images.length > 1 && (
-          <div style={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 8 }}>
-            <button onClick={prev}>Prev</button>
-            <button onClick={next}>Next</button>
-          </div>
-        )}
-      </div>
-      {images.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'center' }}>
-          {images.map((_, i) => (
-            <div key={i} style={{ width: 6, height: 6, borderRadius: 999, background: i === idx ? '#4f46e5' : '#d1d5db' }} />
+          {slides.map((_, i) => (
+            <div 
+              key={i} 
+              className={`dot ${i === index ? 'active' : ''}`}
+              onClick={() => onIndex(i)}
+              style={{ cursor: 'pointer' }}
+            />
           ))}
         </div>
-      )}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button 
+            className="btn" 
+            onClick={prev} 
+            disabled={index === 0}
+            style={{ padding: '8px 16px' }}
+          >
+            ← Back
+          </button>
+          <button 
+            className="btn" 
+            onClick={next} 
+            disabled={atEnd}
+            style={{ padding: '8px 16px' }}
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+      
+      {/* Current Slide */}
+      <div style={{ animation: 'fadeInUp 0.4s ease-out' }}>{slides[index]}</div>
+      
+      {/* Footer */}
+      {footer ? footer(atEnd) : null}
     </div>
   );
 }
@@ -378,7 +667,19 @@ function MapEmbed({ name, city, state }: { name?: string; city?: string; state?:
   const q = encodeURIComponent([name, city, state, 'United States'].filter(Boolean).join(', '));
   // Google Maps embed via query. Start zoomed out via 
   const url = `https://www.google.com/maps?q=${q}&output=embed&z=4`;
-  return <iframe title="map" src={url} style={{ width: '100%', height: 220, border: 0, borderRadius: 8 }} />;
+  return (
+    <div style={{ 
+      border: '1px solid var(--border)', 
+      borderRadius: 'var(--radius-sm)', 
+      overflow: 'hidden'
+    }}>
+      <iframe 
+        title="map" 
+        src={url} 
+        style={{ width: '100%', height: 240, border: 0 }} 
+      />
+    </div>
+  );
 }
 
 function na(v?: string) { return v && v.trim().length ? v : 'N/A'; }
@@ -386,5 +687,6 @@ function naNum(v?: number) { return v != null ? String(v) : 'N/A'; }
 function naPct(v?: number) { return v != null ? `${v}%` : 'N/A'; }
 function num(v?: number) { return v != null ? v.toLocaleString?.() : 'N/A' as any; }
 function money(v?: number) { return v != null ? `$${v.toLocaleString?.()}` : 'N/A'; }
+
 
 

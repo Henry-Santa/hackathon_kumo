@@ -21,27 +21,45 @@ export default function Topbar() {
 
   return (
     <div className="toolbar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="pill" style={{ width: 28 }} />
-        <div className="brand" style={{ fontSize: 16 }}>College Matcher</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="pill" style={{ width: 36, height: 36 }} />
+        <div className="brand" style={{ fontSize: 20 }}>College Matcher</div>
       </div>
-      <nav className="nav" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <nav className="nav">
         {isAuthenticated ? (
           <>
-            <Link className={active('/profile')} to="/profile">Discover</Link>
-            <Link className={active('/search')} to="/search">Search</Link>
-            <Link className={active('/account')} to="/account">Profile</Link>
+            <Link className={active('/profile')} to="/profile">
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                🎓 Discover
+              </span>
+            </Link>
+            <Link className={active('/search')} to="/search">
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                🔍 Search
+              </span>
+            </Link>
+            <Link className={active('/account')} to="/account">
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                👤 Profile
+              </span>
+            </Link>
             <button 
               onClick={handleLogout}
               className="btn logout"
             >
-              Logout
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                🚪 Logout
+              </span>
             </button>
           </>
         ) : (
           <>
-            <Link to="/">Sign In</Link>
-            <Link to="/signup">Sign Up</Link>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              🔑 Sign In
+            </Link>
+            <Link to="/signup" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              ✨ Sign Up
+            </Link>
           </>
         )}
       </nav>
