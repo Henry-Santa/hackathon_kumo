@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { config } from '../config';
 
 interface AdmissionChance {
   college_name: string;
@@ -30,7 +31,7 @@ const UserAnalysis: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/me/analysis', {
+      const response = await fetch(config.apiUrl('me/analysis'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
