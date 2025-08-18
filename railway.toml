@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "cd backend && /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
@@ -10,9 +10,14 @@ restartPolicyType = "on_failure"
 [build.envs]
 PYTHON_VERSION = "3.11"
 
-# Set the working directory to backend for both build and deploy
+# Force Railway to use backend context
 [build.context]
 path = "backend"
 
 [deploy.context]
 path = "backend"
+
+# Override the install command to use backend requirements
+[build.install]
+cmd = "pip install -r requirements.txt"
+cmd = "pip install -r /backend/requirements.txt"
