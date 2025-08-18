@@ -18,6 +18,7 @@ Set these environment variables before running the backend:
 - SNOWFLAKE_SCHEMA (default: PUBLIC)
 - SNOWFLAKE_INSECURE (optional; set to true to relax SSL/OCSP checks if you hit cert errors)
 - KUMO_KEY (required for Kumo link-prediction API access)
+- OPENAI_API_KEY (required for AI-powered college analysis)
 - JWT_SECRET (set to a strong random string)
 - JWT_ISS (default: college-matcher)
 - JWT_AUD (default: college-matcher-web)
@@ -33,6 +34,7 @@ $env:SNOWFLAKE_DATABASE="DATA_LAKE"
 $env:SNOWFLAKE_SCHEMA="PUBLIC"
 $env:SNOWFLAKE_INSECURE="false"
 $env:KUMO_KEY="your_kumo_api_key"
+$env:OPENAI_API_KEY="your_openai_api_key"
 $env:JWT_SECRET="dev-secret-change-me"
 $env:JWT_ISS="college-matcher"
 $env:JWT_AUD="college-matcher-web"
@@ -49,6 +51,7 @@ export SNOWFLAKE_DATABASE=DATA_LAKE
 export SNOWFLAKE_SCHEMA=PUBLIC
 export SNOWFLAKE_INSECURE=false
 export KUMO_API_KEY=your_kumo_api_key
+export OPENAI_API_KEY=your_openai_api_key
 export JWT_SECRET=dev-secret-change-me
 export JWT_ISS=college-matcher
 export JWT_AUD=college-matcher-web

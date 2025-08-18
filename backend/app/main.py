@@ -25,6 +25,7 @@ from typing import Dict, Tuple, List, Optional, Union
 import anyio
 import asyncio
 import os
+import openai
 
 
 app = FastAPI(title="College Matcher API")
@@ -627,6 +628,137 @@ async def university_by_unitid(unitid: int):
     images = await fetch_top_images_for_unitid(int(uni["unitid"]))
     uni["images"] = images
     return uni
+
+
+@app.get("/me/analysis")
+async def get_user_analysis(user_id: str = Depends(require_auth)):
+    """Get AI-powered analysis of user's college preferences and admission chances"""
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=503, detail="OpenAI API not configured")
+    
+    try:
+        # Get user profile
+        user_profile = fetch_one(
+            """
+            SELECT USER_ID, EMAIL, GENDER, STATE_ABBREVIATION, RACE_ETHNICITY,
+                   SAT_ERW, SAT_MATH, ACT_COMPOSITE
+            FROM DATA_LAKE.PUBLIC.USERS
+            WHERE USER_ID = %(uid)s
+            """,
+            {"uid": user_id},
+        )
+        
+        if not user_profile:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        
+        # Get user's liked colleges with detailed information
+        liked_colleges = fetch_all(
+            """
+            SELECT l.UNITID, u.INSTITUTION_NAME, u.CITY_LOCATION_OF_INSTITUTION, 
+                   u.STATE_ABBREVIATION, u.PERCENT_ADMITTED_TOTAL, u.TUITION_AND_FEES_2023_24,
+                   u.INSTITUTION_SIZE_CATEGORY, u.CONTROL_OF_INSTITUTION, 
+                   u.DEGREE_OF_URBANIZATION_URBAN_CENTRIC_LOCALE, u.LEVEL_OF_INSTITUTION,
+                   u.SAT_EVIDENCE_BASED_READING_AND_WRITING_50TH_PERCENTILE_SCORE,
+                   u.SAT_MATH_50TH_PERCENTILE_SCORE, u.ACT_COMPOSITE_50TH_PERCENTILE_SCORE,
+                   u.GRADUATION_RATE_TOTAL_COHORT, u.FULL_TIME_RETENTION_RATE_2023,
+                   u.STUDENT_TO_FACULTY_RATIO, u.APPLICANTS_TOTAL
+            FROM DATA_LAKE.PUBLIC.USER_LIKES l
+            JOIN DATA_LAKE.PUBLIC.UNIVERSITY_DATA u ON u.UNITID = l.UNITID
+            WHERE l.USER_ID = %(uid)s
+            ORDER BY l.CREATED_AT DESC
+            """,
+            {"uid": user_id},
+        )
+        
+        if not liked_colleges:
+            return {
+                "general_description": "You haven't liked any colleges yet. Start swiping to get personalized insights!",
+                "college_preferences": "No preferences available yet.",
+                "admission_chances": []
+            }
+        
+        # Prepare data for OpenAI analysis
+        user_data = {
+            "profile": user_profile,
+            "liked_colleges": liked_colleges
+        }
+        
+        # Create the analysis prompt
+        prompt = f"""
+        Analyze this student's college preferences and provide insights in the following format:
+
+        STUDENT PROFILE:
+        - SAT ERW: {user_profile.get('SAT_ERW', 'Not provided')}
+        - SAT Math: {user_profile.get('SAT_MATH', 'Not provided')}
+        - ACT Composite: {user_profile.get('ACT_COMPOSITE', 'Not provided')}
+        - State: {user_profile.get('STATE_ABBREVIATION', 'Not provided')}
+        - Gender: {user_profile.get('GENDER', 'Not provided')}
+        - Race/Ethnicity: {user_profile.get('RACE_ETHNICITY', 'Not provided')}
+
+        LIKED COLLEGES:
+        {chr(10).join([f"- {college['INSTITUTION_NAME']} ({college['CITY_LOCATION_OF_INSTITUTION']}, {college['STATE_ABBREVIATION']}) - Acceptance Rate: {college['PERCENT_ADMITTED_TOTAL']}%, Size: {college['INSTITUTION_SIZE_CATEGORY']}, Type: {college['CONTROL_OF_INSTITUTION']}" for college in liked_colleges])}
+
+        Please provide:
+
+        1. GENERAL DESCRIPTION (2-3 sentences): Analyze the student's general preferences based on the types of schools they've liked. Consider factors like selectivity, size, location, type, etc.
+
+        2. COLLEGE PREFERENCES (3-4 sentences): Identify common themes and unique factors among their liked schools. What do they seem to value most? What makes each school distinct?
+
+        3. ADMISSION CHANCES: For each liked college, classify as REACH, TARGET, LIKELY, or SAFETY based on the student's test scores compared to the college's 50th percentile scores. Format as:
+        - [College Name]: [Classification] - [Brief reasoning]
+
+        Keep the analysis concise, insightful, and focused on helping the student understand their preferences and realistic admission chances.
+        """
+        
+        # Call OpenAI API
+        client = openai.OpenAI(api_key=settings.openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a college admissions counselor analyzing student preferences and admission chances. Provide clear, actionable insights."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=800,
+            temperature=0.7
+        )
+        
+        analysis_text = response.choices[0].message.content
+        
+        # Parse the response to extract the three sections
+        sections = analysis_text.split('\n\n')
+        
+        general_description = ""
+        college_preferences = ""
+        admission_chances = []
+        
+        for section in sections:
+            if "GENERAL DESCRIPTION" in section or "1." in section:
+                general_description = section.replace("1. GENERAL DESCRIPTION:", "").replace("GENERAL DESCRIPTION:", "").strip()
+            elif "COLLEGE PREFERENCES" in section or "2." in section:
+                college_preferences = section.replace("2. COLLEGE PREFERENCES:", "").replace("COLLEGE PREFERENCES:", "").strip()
+            elif "ADMISSION CHANCES" in section or "3." in section:
+                # Extract individual college assessments
+                lines = section.split('\n')
+                for line in lines:
+                    if line.strip().startswith('-') and ':' in line:
+                        parts = line.strip().split(':')
+                        if len(parts) >= 2:
+                            college_name = parts[0].replace('-', '').strip()
+                            assessment = parts[1].strip()
+                            admission_chances.append({
+                                "college_name": college_name,
+                                "assessment": assessment
+                            })
+        
+        return {
+            "general_description": general_description or "Analysis not available",
+            "college_preferences": college_preferences or "Preferences not available",
+            "admission_chances": admission_chances
+        }
+        
+    except Exception as e:
+        logging.error(f"Error in user analysis: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 

@@ -12,6 +12,7 @@ class Settings(BaseModel):
     snowflake_schema: str = "PUBLIC"
     snowflake_insecure: bool = False
     kumo_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
     jwt_secret: str = "dev-secret-change-me"
     jwt_iss: str = "college-matcher"
     jwt_aud: str = "college-matcher-web"
@@ -37,6 +38,7 @@ class Settings(BaseModel):
             snowflake_schema=os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC"),
             snowflake_insecure=_to_bool(os.getenv("SNOWFLAKE_INSECURE"), False),
             kumo_api_key=raw_kumo,
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
             jwt_secret=os.getenv("JWT_SECRET", "dev-secret-change-me"),
             jwt_iss=os.getenv("JWT_ISS", "college-matcher"),
             jwt_aud=os.getenv("JWT_AUD", "college-matcher-web"),

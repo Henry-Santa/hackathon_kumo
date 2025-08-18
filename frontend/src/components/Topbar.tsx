@@ -38,6 +38,11 @@ export default function Topbar() {
                 🔍 Search
               </span>
             </Link>
+            <Link className={active('/analysis')} to="/analysis">
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                🧠 Analysis
+              </span>
+            </Link>
             <Link className={active('/account')} to="/account">
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 👤 Profile

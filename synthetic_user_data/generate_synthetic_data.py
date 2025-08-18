@@ -474,7 +474,7 @@ def purge_synthetic(conn) -> int:
 
 
 def main():
-    random.seed(42)
+    random.seed(32)
     purge_before_create = False  # do not wipe previous synthetic users
     default_password = "Test1234!"
     password_hash = bcrypt.hashpw(default_password.encode("utf-8"), bcrypt.gensalt(rounds=12))
@@ -499,7 +499,7 @@ def main():
                 sat_erw_range=(680, 780),
                 sat_math_range=(700, 800),
                 act_range=(33, 36),
-                users_to_create=8,
+                users_to_create=20,
             ),
             Persona(
                 name="selective_acceptance",
@@ -512,7 +512,7 @@ def main():
                 sat_erw_range=(650, 760),
                 sat_math_range=(670, 800),
                 act_range=(32, 36),
-                users_to_create=8,
+                users_to_create=20,
             ),
             Persona(
                 name="jock",
@@ -538,7 +538,7 @@ def main():
                 sat_erw_range=(580, 720),
                 sat_math_range=(560, 700),
                 act_range=(24, 31),
-                users_to_create=6,
+                users_to_create=2,
             ),
             Persona(
                 name="middle_of_the_road",
@@ -577,7 +577,7 @@ def main():
                 sat_erw_range=(560, 700),
                 sat_math_range=(560, 720),
                 act_range=(23, 31),
-                users_to_create=8,
+                users_to_create=0,
             ),
             Persona(
                 name="stem_fan",
@@ -603,7 +603,7 @@ def main():
                 sat_erw_range=(520, 640),
                 sat_math_range=(520, 660),
                 act_range=(20, 28),
-                users_to_create=8,
+                users_to_create=2,
             ),
             Persona(
                 name="urbanite",
@@ -616,7 +616,7 @@ def main():
                 sat_erw_range=(560, 700),
                 sat_math_range=(560, 720),
                 act_range=(24, 32),
-                users_to_create=8,
+                users_to_create=12,
             ),
         ]
 

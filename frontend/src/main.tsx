@@ -8,6 +8,7 @@ import SignUp from './pages/SignUp';
 import UniversityProfile from './pages/UniversityProfile';
 import ProfilePage from './pages/Profile';
 import SearchPage from './pages/Search';
+import UserAnalysis from './pages/UserAnalysis';
 
 function Layout() {
   return (
@@ -45,6 +46,14 @@ const router = createBrowserRouter([
         element: (
           <AuthGuard>
             <SearchPage />
+          </AuthGuard>
+        ) 
+      },
+      { 
+        path: '/analysis', 
+        element: (
+          <AuthGuard>
+            <UserAnalysis />
           </AuthGuard>
         ) 
       },
