@@ -5,7 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // Remove proxy for production deployment
+    proxy: {
+      '/api': {
+        target: 'https://hackathonkumo-production.up.railway.app',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
   preview: {
     port: 5173,
@@ -16,6 +23,14 @@ export default defineConfig({
       'healthcheck.railway.app', // Allow Railway healthchecks
       '.railway.app', // Allow all Railway domains
     ],
+    proxy: {
+      '/api': {
+        target: 'https://hackathonkumo-production.up.railway.app',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
 });
 
