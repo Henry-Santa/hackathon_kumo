@@ -33,7 +33,7 @@ app = FastAPI(title="College Matcher API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[settings.frontend_url, "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -759,6 +759,12 @@ async def get_user_analysis(user_id: str = Depends(require_auth)):
     except Exception as e:
         logging.error(f"Error in user analysis: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Railway deployment"""
+    return {"status": "healthy", "timestamp": "2024-01-01T00:00:00Z"}
 
 
 

@@ -16,6 +16,8 @@ class Settings(BaseModel):
     jwt_secret: str = "dev-secret-change-me"
     jwt_iss: str = "college-matcher"
     jwt_aud: str = "college-matcher-web"
+    environment: str = "development"
+    frontend_url: str = "http://localhost:5173"
 
     @staticmethod
     def load() -> "Settings":
@@ -42,6 +44,8 @@ class Settings(BaseModel):
             jwt_secret=os.getenv("JWT_SECRET", "dev-secret-change-me"),
             jwt_iss=os.getenv("JWT_ISS", "college-matcher"),
             jwt_aud=os.getenv("JWT_AUD", "college-matcher-web"),
+            environment=os.getenv("ENVIRONMENT", "development"),
+            frontend_url=os.getenv("FRONTEND_URL", "http://localhost:5173"),
         )
 
 
