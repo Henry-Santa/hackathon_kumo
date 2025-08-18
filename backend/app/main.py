@@ -33,10 +33,18 @@ app = FastAPI(title="College Matcher API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:5173"],
+    allow_origins=[
+        settings.frontend_url, 
+        "http://localhost:5173",
+        "https://astonishing-embrace-production.up.railway.app",  # Railway frontend
+        "https://*.railway.app",  # Allow all Railway domains
+        "*",  # Temporarily allow all origins for debugging
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 
@@ -633,7 +641,10 @@ async def university_by_unitid(unitid: int):
 @app.get("/me/analysis")
 async def get_user_analysis(user_id: str = Depends(require_auth)):
     """Get AI-powered analysis of user's college preferences and admission chances"""
+    logging.info(f"Analysis endpoint called for user: {user_id}")
+    
     if not settings.openai_api_key:
+        logging.error("OpenAI API key not configured")
         raise HTTPException(status_code=503, detail="OpenAI API not configured")
     
     try:
@@ -649,7 +660,10 @@ async def get_user_analysis(user_id: str = Depends(require_auth)):
         )
         
         if not user_profile:
+            logging.error(f"User profile not found for user: {user_id}")
             raise HTTPException(status_code=404, detail="User profile not found")
+        
+        logging.info(f"User profile found: {user_profile.get('EMAIL', 'No email')}")
         
         # Get user's liked colleges with detailed information
         liked_colleges = fetch_all(
@@ -670,7 +684,10 @@ async def get_user_analysis(user_id: str = Depends(require_auth)):
             {"uid": user_id},
         )
         
+        logging.info(f"Found {len(liked_colleges)} liked colleges for user: {user_id}")
+        
         if not liked_colleges:
+            logging.info(f"No liked colleges found for user: {user_id}")
             return {
                 "general_description": "You haven't liked any colleges yet. Start swiping to get personalized insights!",
                 "college_preferences": "No preferences available yet.",
@@ -765,6 +782,12 @@ async def get_user_analysis(user_id: str = Depends(require_auth)):
 def health_check():
     """Health check endpoint for Railway deployment"""
     return {"status": "healthy", "timestamp": "2024-01-01T00:00:00Z"}
+
+
+@app.get("/test-cors")
+def test_cors():
+    """Test endpoint to verify CORS is working"""
+    return {"message": "CORS test successful", "timestamp": "2024-01-01T00:00:00Z"}
 
 
 
