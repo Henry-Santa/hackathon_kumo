@@ -19,5 +19,4 @@ path = "backend"
 
 # Override the install command to use backend requirements
 [build.install]
-cmd = "pip install -r requirements.txt"
-cmd = "pip install -r /backend/requirements.txt"
+cmd = "pip install -r requirements.txt && pip install -r /backend/requirements.txt"
